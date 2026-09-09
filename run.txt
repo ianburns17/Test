@@ -1,0 +1,15 @@
+1. Start the PostgreSQL container
+docker-compose up -d
+
+2. Run migrations
+Option A: Run migration with migrate CLI
+migrate -path=./migrations -database="postgres://postgres:postgres@localhost:5432/image_db?sslmode=disable" up
+
+Option B: Run tables.sql directly
+psql -U postgres -d image_db -f tables.sql
+
+3. Run the Go API
+go run ./cmd/api
+
+4. Access Web Console & Acceptance Dashboard
+http://localhost:4000/

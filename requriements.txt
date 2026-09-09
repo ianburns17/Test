@@ -1,0 +1,333 @@
+IMAGELAB
+Version 1 Requirements Specification
+Asynchronous image processing with 202 Accepted and short polling
+Central contract: The API accepts and durably records the work; the worker performs it independently; the browser uses short polling to observe the changing job state.
+
+
+How to use this specification
+This document tells you what ImageLab must do and what a correct submission must demonstrate. It is intentionally written before the starter code so that you can reason from required behavior to implementation.
+Read Sections 1-5 before opening the starter code.
+Use the requirement identifiers when planning tasks and discussing defects.
+Use the acceptance checks at the end of each major section to test observable behavior.
+Do not add technologies listed as out of scope, even if you already know them.
+1. Project purpose and learning outcomes
+ImageLab accepts an uploaded image, creates a durable processing job, returns an acknowledgement before the expensive transformation work finishes, and later provides generated image variants. The browser remains responsive and observes job state through ordinary repeated GET requests.
+1.1 Required learning outcomes
+Explain why the upload request and the processing job have different lifetimes.
+Implement the 202 Accepted + Job resource pattern.
+Persist queued work so it is not owned only by the HTTP request or browser.
+Run image transformation in a background worker.
+Implement one-second short polling and stop at terminal states.
+Distinguish inability to observe a job from failure of the job itself.
+Measure acknowledgement, queue, processing, and completion time.
+2. Version 1 scope
+Area
+Required choice
+Backend
+Go HTTP API and one in-process background worker
+Database
+PostgreSQL for images, jobs, and variant metadata
+File storage
+Local filesystem for original and generated images
+Frontend
+HTML, CSS, and vanilla JavaScript
+Acknowledgement
+HTTP 202 Accepted after durable acceptance
+Observation
+Automatic short polling approximately every 1 second
+Job states
+queued, processing, completed, failed
+
+
+2.1 Required end-to-end flow
+The user selects and previews a JPEG or PNG in the browser.
+The user clicks Process image, and the browser sends one POST request.
+The API validates and stores the original, then creates a queued job in PostgreSQL.
+The API returns 202 Accepted with an image ID, job ID, and status URL.
+The browser starts short polling the status URL every second.
+The worker claims the queued job and generates the required variants.
+The browser updates the job card after each status response.
+Polling stops on completed or failed. Results appear only after completed.
+3. User interface requirements
+3.1 Initial state
+UI-01  Empty upload. The page must initially show no selected image and an enabled image-selection control.
+UI-02  Disabled processing. The Process image button must be disabled until an acceptable file is selected.
+UI-03  No active job. The job card must display No active job. No polling request may run.
+UI-04  Empty results. The results panel must display No images generated yet.
+3.2 Image-selected state
+UI-05  Local preview. After selection, show a browser-owned preview, original filename, file size, and reported media type.
+UI-06  No premature upload. Selecting a file must not upload it, create a server job, or begin polling.
+UI-07  Replace selection. The user must be able to choose another file before submission.
+3.3 Uploading state
+UI-08  Visible activity. After the user submits, show Uploading... and disable Process image while the POST request is active.
+UI-09  One request from the page. The page must not start an overlapping second upload while the first POST is still awaiting a response.
+Student implementation note: Use both a disabled button and an isSubmitting Boolean guard. This prevents accidental double-clicks in this page. It is not backend idempotency.
+
+
+3.4 Accepted and active-job state
+UI-10  Acknowledged job. After 202 Accepted, show the returned job ID and current status.
+UI-11  Timeline. Show Upload accepted and Original stored as complete; show Generating variants as pending or active; show Complete as pending until completion.
+UI-12  Visible polling. While the job is queued or processing, display Checking status automatically and Every 1 second.
+UI-13  No false completion. Receiving 202 Accepted must never cause the UI to show generated results or a completed job.
+3.5 Processing, completion, and failure
+UI-14  Processing results state. While queued or processing, display Images are being generated and Results will appear when processing completes.
+UI-15  Completed results. After completed, stop polling and display all required variants with names, actual dimensions, and view/download controls.
+UI-16  Failed processing. After the API reports status failed, stop polling, show a safe processing error, do not mark Complete, and do not display result cards.
+4. HTTP acceptance requirements
+API-01  Submission endpoint. POST /v1/images must receive one image using multipart form data.
+API-02  Acceptance boundary. Before returning 202, the handler must validate the upload, store the original, create the image record, and create the queued job.
+API-03  Work after response. The request handler must not generate variants. The background worker performs transformation after acceptance.
+API-04  Accepted response. A successful submission must return 202 Accepted, a Location header for the job, and a JSON body containing image_id, job_id, status, and status_url.
+HTTP/1.1 202 Accepted
+Location: /v1/jobs/42
+Content-Type: application/json
+
+{
+  "image_id": 108,
+  "job_id": 42,
+  "status": "queued",
+  "status_url": "/v1/jobs/42"
+}
+Meaning of 202: The server has accepted responsibility for durable work. It does not mean that image processing has finished.
+
+
+5. Job resource and worker requirements
+JOB-01  Durable job. Every accepted submission must have a PostgreSQL job record. The job must not exist only in browser state, a goroutine, or an in-memory queue.
+JOB-02  Allowed states. Use exactly queued, processing, completed, and failed for Version 1.
+JOB-03  Valid transitions. Allow queued to processing, followed by processing to completed or failed. Completed and failed are terminal.
+WRK-01  One worker. Run one background worker inside the same Go application process as the HTTP API.
+WRK-02  Worker behavior. The worker must find a queued job, claim it, set processing, read the original, create all variants, store metadata, and set completed.
+WRK-03  Worker failure. If processing cannot finish, set failed and store a client-safe message. Never report partial work as completed.
+6. Short-polling requirements
+POLL-01  Start condition. Begin polling only after a successful 202 response provides a status URL.
+POLL-02  Polling request. Send GET /v1/jobs/{job_id} approximately once every 1 second while the last known state is queued or processing.
+POLL-03  Short response. Each GET must return the current state promptly. The server must not hold the request open waiting for a change.
+POLL-04  Render each response. After each response, update the status badge, timeline, timestamps, and whether polling continues.
+POLL-05  Terminal stop. Stop polling immediately after completed or failed.
+POLL-06  Cancellation. Use AbortController so a new observed job or page shutdown can cancel the current polling operation.
+6.1 Retrieval-error policy (required clarification)
+A retrieval error means the browser could not obtain the latest job representation. It does not prove that the worker or processing job failed.
+Condition
+What is known
+Required UI behavior
+GET status fails
+Current job state is unknown; worker may still run
+Stop polling; preserve last known state; show Try again
+GET returns status=failed
+Server confirms processing failed
+Stop polling; show Processing failed and safe reason
+
+
+POLL-07  Stop after retrieval error. For Version 1, stop the automatic polling loop after a network error, timeout, non-success HTTP response, or unusable response body.
+POLL-08  Preserve observed job. Keep the job ID and last successfully observed state. Do not change the job to failed, create another job, or upload the image again.
+POLL-09  Try again action. Display Unable to check status. The job may still be running and provide a Try again button.
+POLL-10  Resume same job. Try again must request the existing status_url. If the state is active, resume one-second polling; if terminal, render the terminal state and stop.
+Student decision rule: Could not retrieve status = observation failure. API returned status failed = processing failure. Never treat these as the same event.
+
+
+6.2 Retrieval-error example
+10:24:31  POST /v1/images     -> 202, job #42
+10:24:32  GET /v1/jobs/42    -> queued
+10:24:33  GET /v1/jobs/42    -> processing
+10:24:34  GET /v1/jobs/42    -> network error
+           Browser stops polling and offers Try again
+10:24:35  Worker completes job #42
+10:24:38  User selects Try again
+10:24:38  GET /v1/jobs/42    -> completed
+           Browser displays generated images
+
+7. Duplicate-submission policy (required clarification)
+Version 1 prevents accidental overlapping POST requests from the same page. It does not claim to solve duplicate requests across retries, tabs, clients, or network failures.
+SUB-01  Immediate button lock. Disable Process image before awaiting fetch so a rapid second click cannot start another POST.
+SUB-02  State guard. Maintain an isSubmitting flag. If it is already true, the submission handler must return without sending a request.
+SUB-03  Restore after rejection. If the upload is rejected or the request fails without a 202 response, show the error and allow the user to attempt submission again.
+SUB-04  No backend idempotency in Version 1. An Idempotency-Key header, database idempotency key, and deduplication of repeated POST requests are not required.
+Scope note for students: Disabling the button protects this user interface from accidental double-clicks. It does not make POST idempotent. Backend idempotency will be studied later in the semester.
+
+
+7.1 Required frontend behavior
+let isSubmitting = false;
+
+async function submitImage() {
+  if (isSubmitting) return;
+
+  isSubmitting = true;
+  processButton.disabled = true;
+  processButton.textContent = "Uploading...";
+
+  try {
+    // Send exactly one POST and handle the response.
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+The starter code may provide the event listener and DOM references, but students must ensure the state guard and disabled-button behavior are correct.
+8. Upload validation and storage
+VAL-01  Supported input. Accept JPEG and PNG images no larger than 10 MB.
+VAL-02  Authoritative validation. Browser checks may improve usability, but the Go server must enforce type, size, presence, and decodability.
+VAL-03  Safe storage name. Generate server-controlled stored filenames. Never use the submitted filename directly as a filesystem path.
+VAL-04  Original metadata. The original filename may be stored as display metadata.
+VAL-05  Acceptance failure. If validation, original storage, or durable record creation fails, do not return 202 and do not claim a queued job exists.
+9. Image variant requirements
+Variant
+Target
+Transformation contract
+thumbnail
+150 x 150
+Exact square; crop where necessary
+preview
+Maximum 800 x 600
+Fit within bounds; preserve aspect ratio
+display
+Maximum 1200 x 900
+Fit within bounds; preserve aspect ratio
+
+
+IMG-01  Fixed profile. Users do not configure variant names, dimensions, formats, or quality in Version 1.
+IMG-02  No distortion. Preview and display must preserve aspect ratio and must not be stretched.
+IMG-03  All-or-complete contract. The job becomes completed only after all three variants and their metadata are available.
+IMG-04  Actual dimensions. The job response must report the actual output dimensions, which may be smaller than maximum bounds.
+10. API contract
+Method
+Endpoint
+Responsibility
+POST
+/v1/images
+Accept original and create queued job
+GET
+/v1/jobs/{job_id}
+Return current job state and completed variant metadata
+GET
+/v1/images/{image_id}/variants/{name}
+Return one known generated variant
+
+
+10.1 Active-job response
+{
+  "id": 42,
+  "image_id": 108,
+  "status": "processing",
+  "queued_at": "2026-08-31T10:24:33Z",
+  "started_at": "2026-08-31T10:24:37Z",
+  "completed_at": null
+}
+
+10.2 Completed-job response
+{
+  "id": 42,
+  "image_id": 108,
+  "status": "completed",
+  "queued_at": "2026-08-31T10:24:33Z",
+  "started_at": "2026-08-31T10:24:37Z",
+  "completed_at": "2026-08-31T10:24:42Z",
+  "variants": [
+    {"name":"thumbnail","width":150,"height":150,"url":"/v1/images/108/variants/thumbnail"},
+    {"name":"preview","width":800,"height":533,"url":"/v1/images/108/variants/preview"},
+    {"name":"display","width":1200,"height":800,"url":"/v1/images/108/variants/display"}
+  ]
+}
+
+11. Data and timestamp requirements
+Record
+Minimum information
+Image
+ID, original filename, stored filename, media type, size, created time
+Job
+ID, image ID, status, safe error, queued/started/completed/failed times
+Variant
+ID, image ID, name, stored filename, actual width/height, size, created time
+
+
+DATA-01  Queue time. Record queued_at when the durable job is created.
+DATA-02  Start time. Record started_at when the worker successfully claims the job.
+DATA-03  Finish time. Record completed_at on success or failed_at on processing failure.
+DATA-04  Status constraint. PostgreSQL must prevent job status values outside the four allowed states.
+12. Error behavior
+Failure
+Required outcome
+Missing/unsupported/oversized upload
+Reject submission; no accepted job
+Cannot store original
+Reject submission; do not return 202
+Cannot create durable records
+Reject submission; clean up stored input where practical
+Worker cannot decode/process/write
+Mark job failed; retain safe error
+Status GET retrieval error
+Do not mark failed; stop polling; offer Try again
+Unknown job ID
+Return an appropriate not-found response
+Unknown variant or unavailable result
+Do not expose arbitrary paths; return an appropriate response
+
+
+13. Minimum safeguards
+Enforce the 10 MB upload limit on the server.
+Restrict and decode supported image formats.
+Generate storage filenames on the server.
+Use textContent rather than innerHTML for untrusted display values.
+Do not expose stack traces, internal paths, or raw database errors.
+Serve only known image variants.
+Scope note: These are baseline constraints, not the later security rewrite. Do not expand Version 1 into a full security project.
+
+
+14. Explicitly out of scope
+Manual status checking
+Long polling
+Server-Sent Events
+WebSockets
+Webhooks
+PostgreSQL LISTEN/NOTIFY
+Redis, RabbitMQ, or Kafka
+Multiple or separately deployed workers
+Cloud object storage
+Automatic retries or retry backoff
+Job cancellation
+Backend idempotency and Idempotency-Key
+Authentication and user accounts
+User-configurable transformations
+Frontend frameworks
+15. Required measurements
+Measurement
+Definition
+Acknowledgement latency
+Response received minus submission request started
+Queue wait
+started_at minus queued_at
+Processing duration
+completed_at or failed_at minus started_at
+Job duration
+completed_at minus queued_at
+Polling count
+Number of status GET requests for the observed job
+Detection delay
+Client observation of completion minus server completed_at
+
+
+Students must test at least one image and a burst of five images submitted close together. With one worker, later jobs should usually wait longer in the queue.
+Expected conclusion: 202 Accepted reduces request waiting for processing. It does not reduce the work, eliminate upload time, or create additional processing capacity.
+
+
+16. Acceptance checklist
+☐ Initial page shows no image, no job, no results, and no polling.
+☐ Selecting a file creates a local preview but no server job.
+☐ One click starts one POST; the button and isSubmitting guard prevent overlapping page submissions.
+☐ The handler stores the original and queued job before returning 202.
+☐ The 202 response contains image ID, job ID, status, status URL, and Location header.
+☐ The handler does not generate variants.
+☐ One background worker moves queued to processing and then completed or failed.
+☐ Polling starts only after 202 and runs approximately every second.
+☐ The UI updates after every successful status response.
+☐ Results remain hidden until the entire job is completed.
+☐ Polling stops on completed or failed.
+☐ A status retrieval error preserves the job, stops polling, and offers Try again.
+☐ Try again observes the same job and does not resubmit the image.
+☐ The three generated variants meet their transformation contracts.
+☐ A new upload cancels observation of the previous job.
+☐ Required timestamps and measurements are recorded.
+17. Definition of done
+ImageLab Version 1 is done when a user can select and preview an image, submit it once, receive a durable job through 202 Accepted, observe queued and processing through one-second short polling, recover observation using Try again after a retrieval error, and view all required variants after successful completion. The implementation must also demonstrate that processing continues independently of the original HTTP request.
+Final explanation students must be able to give: The POST request accepts and preserves the work. The worker performs the image transformations. The job resource records authoritative progress. Short polling lets the browser repeatedly retrieve that progress until a terminal state.
+
+
