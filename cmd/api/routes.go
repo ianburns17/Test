@@ -17,11 +17,12 @@ func (a *applicationDependencies) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/", a.uiConsoleHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", a.healthcheckHandler)
 
-	// Image Acceptance Endpoints (Week 1 Acceptance Foundation)
+	// Image Acceptance & Retrieval Endpoints
 	router.HandlerFunc(http.MethodPost, "/v1/images", a.uploadImageHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/images/:id", a.getImageHandler)
+	router.HandlerFunc(http.MethodGet, "/v1/images/:id/variants/:name", a.getVariantHandler)
 
-	// Job Observation Endpoints
+	// Job Observation Endpoints (Week 2 Durable Job & Short Polling)
 	router.HandlerFunc(http.MethodGet, "/v1/jobs/:id", a.getJobHandler)
 
 	// Middleware chain: recoverPanic -> rateLimit -> corsMiddleware

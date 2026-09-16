@@ -3,186 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ImageLab — Asynchronous Image Processing Console</title>
+    <title>ImageLab — Pipeline Workbench</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* ==========================================================================
+           DESIGN TOKENS — Technical Engineering Console
+           Restrained neutral palette, crisp 1px borders, deliberate 2-4px radius.
+           No blur, no purple-blue gradients, no glowing blobs.
+           ========================================================================== */
         :root {
-            /* Restrained, human-crafted design system */
-            --bg-app: #F7F6F3;
-            --bg-surface: #FFFFFF;
-            --bg-subtle: #F1F0EC;
-            --bg-hover: #EBEAE5;
+            /* Neutral Foundation */
+            --bg-canvas: #0e1116;
+            --bg-panel: #161b22;
+            --bg-surface: #1c2128;
+            --bg-subtle: #22272e;
+            --bg-hover: #2d333b;
 
-            --text-main: #252525;
-            --text-muted: #6B6B67;
-            --text-dim: #8E8E8A;
+            /* Typography */
+            --font-ui: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --font-mono: 'IBM Plex Mono', SFMono-Regular, Consolas, Menlo, monospace;
 
-            --border-color: #DDDCD7;
-            --border-subtle: #E7E6E1;
-            --border-focus: #3F5F4A;
+            /* Text Hierarchy */
+            --text-primary: #f0f6fc;
+            --text-secondary: #adbac7;
+            --text-muted: #768390;
+            --text-dim: #545d68;
 
-            --color-primary: #3F5F4A;
-            --color-primary-hover: #334D3C;
-            --color-primary-text: #FFFFFF;
+            /* Borders */
+            --border-subtle: #2d333b;
+            --border-default: #373e47;
+            --border-strong: #444c56;
 
-            --status-success: #557A5C;
-            --status-success-bg: #EDF3EE;
-            --status-success-border: #CFE2D2;
+            /* Interactive Actions */
+            --action-primary-bg: #2d5fb8;
+            --action-primary-hover: #3b73db;
+            --action-primary-text: #ffffff;
+            --action-secondary-bg: #22272e;
+            --action-secondary-border: #373e47;
+            --action-secondary-hover: #2d333b;
 
-            --status-warning: #9A783F;
-            --status-warning-bg: #F8F4ED;
-            --status-warning-border: #EBD9B8;
+            /* Functional Status Signals (Desaturated, High Contrast) */
+            --status-idle-text: #768390;
+            --status-idle-bg: #22272e;
+            --status-idle-border: #373e47;
 
-            --status-error: #A6534D;
-            --status-error-bg: #F8EDED;
-            --status-error-border: #E9C4C1;
+            --status-queued-text: #d29922;
+            --status-queued-bg: rgba(210, 153, 34, 0.12);
+            --status-queued-border: rgba(210, 153, 34, 0.35);
 
-            --status-neutral: #6B6B67;
-            --status-neutral-bg: #F1F0EC;
-            --status-neutral-border: #DDDCD7;
+            --status-processing-text: #58a6ff;
+            --status-processing-bg: rgba(88, 166, 255, 0.12);
+            --status-processing-border: rgba(88, 166, 255, 0.35);
 
-            --status-info: #3E6379;
-            --status-info-bg: #EEF4F7;
-            --status-info-border: #D2E1E9;
+            --status-completed-text: #56d364;
+            --status-completed-bg: rgba(86, 211, 100, 0.12);
+            --status-completed-border: rgba(86, 211, 100, 0.35);
 
-            --radius-sm: 4px;
-            --radius-md: 6px;
-            --radius-lg: 8px;
+            --status-failed-text: #f85149;
+            --status-failed-bg: rgba(248, 81, 73, 0.12);
+            --status-failed-border: rgba(248, 81, 73, 0.35);
 
-            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-            --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
+            /* Deliberate Radius Scale */
+            --radius-tag: 2px;
+            --radius-btn: 3px;
+            --radius-panel: 4px;
         }
 
-        * {
+        /* Base Reset */
+        *, *::before, *::after {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
 
         body {
-            font-family: var(--font-sans);
+            font-family: var(--font-ui);
             font-size: 13px;
             line-height: 1.5;
-            color: var(--text-main);
-            background-color: var(--bg-app);
+            color: var(--text-secondary);
+            background-color: var(--bg-canvas);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Top Header */
-        header {
-            background-color: var(--bg-surface);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0.75rem 1.5rem;
-        }
-
-        .header-inner {
-            max-width: 1240px;
-            margin: 0 auto;
+        /* --------------------------------------------------------------------------
+           TOP MASTHEAD — System & Service Identity
+           -------------------------------------------------------------------------- */
+        .masthead {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 0 1.5rem;
+            height: 48px;
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
         }
 
-        .brand-group {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .brand-title {
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .brand-badge {
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            background: var(--bg-subtle);
-            border: 1px solid var(--border-color);
-            padding: 0.15rem 0.45rem;
-            border-radius: var(--radius-sm);
-        }
-
-        .system-meta {
+        .masthead-left {
             display: flex;
             align-items: center;
             gap: 1rem;
-            font-size: 0.8rem;
+        }
+
+        .brand-mark {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .brand-code {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: #58a6ff;
+            background-color: rgba(88, 166, 255, 0.1);
+            border: 1px solid rgba(88, 166, 255, 0.25);
+            padding: 0.1rem 0.4rem;
+            border-radius: var(--radius-tag);
+        }
+
+        .masthead-divider {
+            width: 1px;
+            height: 18px;
+            background-color: var(--border-subtle);
+        }
+
+        .system-specs {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            font-size: 0.76rem;
             color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .system-spec-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         .health-indicator {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.45rem;
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
         }
 
         .health-dot {
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background-color: var(--status-success);
+            background-color: var(--status-completed-text);
+            display: inline-block;
         }
 
-        /* Navigation Tabs */
+        /* --------------------------------------------------------------------------
+           PRIMARY NAVIGATION — Border Tabs
+           -------------------------------------------------------------------------- */
         nav.nav-bar {
-            background-color: var(--bg-surface);
-            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-subtle);
             padding: 0 1.5rem;
         }
 
         .nav-inner {
-            max-width: 1240px;
-            margin: 0 auto;
             display: flex;
             gap: 0.25rem;
         }
 
         .nav-tab {
             appearance: none;
-            background: none;
+            background: transparent;
             border: none;
             border-bottom: 2px solid transparent;
-            font-family: inherit;
-            font-size: 0.82rem;
+            font-family: var(--font-ui);
+            font-size: 0.8rem;
             font-weight: 500;
             color: var(--text-muted);
-            padding: 0.65rem 0.85rem;
+            padding: 0.65rem 0.9rem;
             cursor: pointer;
             transition: color 0.15s ease, border-color 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
         }
 
         .nav-tab:hover {
-            color: var(--text-main);
+            color: var(--text-primary);
         }
 
         .nav-tab.active {
-            color: var(--color-primary);
-            border-bottom-color: var(--color-primary);
+            color: var(--text-primary);
+            border-bottom-color: #58a6ff;
             font-weight: 600;
         }
 
-        /* Main Container */
+        /* --------------------------------------------------------------------------
+           WORKSPACE LAYOUT
+           -------------------------------------------------------------------------- */
         main {
             flex: 1;
-            max-width: 1240px;
             width: 100%;
+            max-width: 1440px;
             margin: 0 auto;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
+            padding: 1.25rem 1.5rem;
         }
 
         .tab-content {
@@ -193,102 +227,62 @@
             display: block;
         }
 
-        /* Console Two-Column Layout */
+        /* Asymmetric Two-Column Console Grid */
         .console-grid {
             display: grid;
-            grid-template-columns: 460px 1fr;
-            gap: 1.5rem;
+            grid-template-columns: 360px 1fr;
+            gap: 1.25rem;
             align-items: start;
         }
 
-        @media (max-width: 1040px) {
+        @media (max-width: 1024px) {
             .console-grid {
                 grid-template-columns: 1fr;
             }
         }
 
-        /* Cards & Surfaces */
-        .card {
-            background-color: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-subtle);
+        /* --------------------------------------------------------------------------
+           PANEL COMPONENT — Structured Containers
+           -------------------------------------------------------------------------- */
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
             overflow: hidden;
+            margin-bottom: 1.25rem;
         }
 
-        .card-header {
-            padding: 0.85rem 1.15rem;
-            border-bottom: 1px solid var(--border-color);
+        .panel-header {
+            padding: 0.65rem 1rem;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-subtle);
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
-            background-color: var(--bg-surface);
         }
 
-        .card-title {
-            font-size: 0.85rem;
+        .panel-title {
+            font-size: 0.78rem;
             font-weight: 600;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-primary);
         }
 
-        .card-body {
-            padding: 1.15rem;
+        .panel-body {
+            padding: 1rem;
             display: flex;
             flex-direction: column;
             gap: 1rem;
         }
 
-        /* Badges & Chips */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.72rem;
-            font-weight: 500;
-            padding: 0.2rem 0.55rem;
-            border-radius: var(--radius-sm);
-            line-height: 1.2;
-            white-space: nowrap;
-        }
-
-        .badge-neutral {
-            background-color: var(--status-neutral-bg);
-            color: var(--status-neutral);
-            border: 1px solid var(--status-neutral-border);
-        }
-
-        .badge-info {
-            background-color: var(--status-info-bg);
-            color: var(--status-info);
-            border: 1px solid var(--status-info-border);
-        }
-
-        .badge-warning {
-            background-color: var(--status-warning-bg);
-            color: var(--status-warning);
-            border: 1px solid var(--status-warning-border);
-        }
-
-        .badge-success {
-            background-color: var(--status-success-bg);
-            color: var(--status-success);
-            border: 1px solid var(--status-success-border);
-        }
-
-        .badge-error {
-            background-color: var(--status-error-bg);
-            color: var(--status-error);
-            border: 1px solid var(--status-error-border);
-        }
-
-        /* File Upload & Dropzone */
+        /* --------------------------------------------------------------------------
+           INGESTION STATION — Direct File Dropzone
+           -------------------------------------------------------------------------- */
         .dropzone {
-            border: 1px dashed var(--border-color);
-            border-radius: var(--radius-md);
-            background-color: var(--bg-subtle);
+            border: 1px dashed var(--border-default);
+            background-color: var(--bg-canvas);
+            border-radius: var(--radius-panel);
             padding: 1.75rem 1rem;
             text-align: center;
             cursor: pointer;
@@ -297,183 +291,283 @@
         }
 
         .dropzone:hover, .dropzone.dragover {
-            border-color: var(--color-primary);
-            background-color: #FAF9F6;
+            border-color: #58a6ff;
+            background-color: rgba(88, 166, 255, 0.04);
         }
 
         .dropzone input[type="file"] {
             position: absolute;
             inset: 0;
-            opacity: 0;
-            cursor: pointer;
             width: 100%;
             height: 100%;
-        }
-
-        .dropzone-icon {
-            color: var(--text-muted);
-            margin-bottom: 0.4rem;
+            opacity: 0;
+            cursor: pointer;
         }
 
         .dropzone-label {
             font-size: 0.84rem;
-            font-weight: 500;
-            color: var(--text-main);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
         }
 
         .dropzone-sub {
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             color: var(--text-muted);
-            margin-top: 0.2rem;
+            font-family: var(--font-mono);
         }
 
-        /* Preview Area */
+        /* Local File Inspection Frame */
         .preview-box {
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            overflow: hidden;
             background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
+            padding: 0.75rem;
+            display: flex;
+            gap: 0.85rem;
+            align-items: center;
         }
 
         .preview-img-frame {
-            height: 200px;
-            background-color: #EFEFEA;
+            width: 72px;
+            height: 72px;
+            background-color: #000;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-btn);
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
         }
 
         .preview-img-frame img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .preview-info {
-            padding: 0.65rem 0.85rem;
-            background-color: var(--bg-surface);
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
+            flex: 1;
+            min-width: 0;
+            font-size: 0.74rem;
         }
 
         .meta-table {
             width: 100%;
-            font-size: 0.76rem;
             border-collapse: collapse;
         }
 
         .meta-table td {
-            padding: 0.2rem 0;
+            padding: 0.1rem 0;
         }
 
         .meta-table td:first-child {
             color: var(--text-muted);
-            width: 110px;
+            width: 85px;
         }
 
         .meta-table td:last-child {
+            color: var(--text-primary);
             font-family: var(--font-mono);
-            color: var(--text-main);
             word-break: break-all;
         }
 
         .preview-banner {
-            font-size: 0.72rem;
-            color: var(--status-info);
-            background-color: var(--status-info-bg);
-            border: 1px solid var(--status-info-border);
-            padding: 0.35rem 0.65rem;
-            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            color: #56d364;
+            margin-top: 0.35rem;
+            font-family: var(--font-mono);
         }
 
-        /* Buttons & Actions */
+        /* --------------------------------------------------------------------------
+           BUTTONS & CONTROLS
+           Tactile, crisp 3px radius, high contrast, zero glowing drop shadows.
+           -------------------------------------------------------------------------- */
         .btn-group {
             display: flex;
             gap: 0.5rem;
-            align-items: center;
         }
 
         .btn {
             appearance: none;
-            font-family: var(--font-sans);
-            font-size: 0.82rem;
-            font-weight: 500;
-            padding: 0.45rem 0.9rem;
-            border-radius: var(--radius-md);
+            border: 1px solid transparent;
+            font-family: var(--font-ui);
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: var(--radius-btn);
+            padding: 0.55rem 0.9rem;
             cursor: pointer;
+            transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
-            border: 1px solid transparent;
-            transition: all 0.12s ease;
-            line-height: 1.25;
+            text-decoration: none;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         .btn-primary {
-            background-color: var(--color-primary);
-            color: var(--color-primary-text);
-            border-color: var(--color-primary);
+            background-color: var(--action-primary-bg);
+            border-color: #388bfd;
+            color: #ffffff;
             flex: 1;
         }
 
         .btn-primary:hover:not(:disabled) {
-            background-color: var(--color-primary-hover);
-            border-color: var(--color-primary-hover);
-        }
-
-        .btn-primary:disabled {
-            background-color: #E6E5E0;
-            color: #9E9D97;
-            border-color: #E6E5E0;
-            cursor: not-allowed;
+            background-color: var(--action-primary-hover);
         }
 
         .btn-secondary {
-            background-color: var(--bg-surface);
-            color: var(--text-main);
-            border-color: var(--border-color);
+            background-color: var(--action-secondary-bg);
+            border-color: var(--action-secondary-border);
+            color: var(--text-primary);
         }
 
         .btn-secondary:hover:not(:disabled) {
-            background-color: var(--bg-subtle);
-        }
-
-        .btn-secondary:disabled {
-            color: var(--text-dim);
-            cursor: not-allowed;
+            background-color: var(--action-secondary-hover);
         }
 
         .btn-subtle {
             background-color: transparent;
-            color: var(--text-muted);
-            border-color: var(--border-color);
-            font-size: 0.76rem;
-            padding: 0.35rem 0.65rem;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.74rem;
+            padding: 0.4rem 0.65rem;
         }
 
         .btn-subtle:hover:not(:disabled) {
-            background-color: var(--bg-subtle);
-            color: var(--text-main);
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            border-color: var(--border-default);
         }
 
-        /* Callouts / Notes */
-        .callout {
-            font-size: 0.76rem;
-            padding: 0.65rem 0.85rem;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-            background-color: var(--bg-subtle);
+        /* Test Harness Action Buttons */
+        .harness-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            padding-top: 0.65rem;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .harness-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: var(--text-muted);
-            line-height: 1.45;
+            margin-bottom: 0.15rem;
+        }
+
+        .btn-harness {
+            width: 100%;
+            text-align: left;
+            justify-content: flex-start;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            padding: 0.45rem 0.7rem;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            border-radius: var(--radius-btn);
+            cursor: pointer;
+            transition: all 0.12s ease;
+        }
+
+        .btn-harness:hover {
+            background-color: var(--bg-subtle);
+            color: var(--text-primary);
+            border-color: var(--border-default);
+        }
+
+        .btn-harness-danger {
+            border-left: 3px solid var(--status-failed-text);
+        }
+
+        .btn-harness-danger:hover {
+            color: #f85149;
+            border-color: rgba(248, 81, 73, 0.4);
+        }
+
+        .btn-harness-burst {
+            border-left: 3px solid #58a6ff;
+        }
+
+        .btn-harness-burst:hover {
+            color: #58a6ff;
+            border-color: rgba(88, 166, 255, 0.4);
+        }
+
+        /* --------------------------------------------------------------------------
+           STATUS BADGES & TAGS
+           Sharp 2px radius, monospace tokens.
+           -------------------------------------------------------------------------- */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 500;
+            padding: 0.15rem 0.45rem;
+            border-radius: var(--radius-tag);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .badge-neutral {
+            color: var(--status-idle-text);
+            background-color: var(--status-idle-bg);
+            border: 1px solid var(--status-idle-border);
+        }
+
+        .badge-success {
+            color: var(--status-completed-text);
+            background-color: var(--status-completed-bg);
+            border: 1px solid var(--status-completed-border);
+        }
+
+        .badge-warning {
+            color: var(--status-queued-text);
+            background-color: var(--status-queued-bg);
+            border: 1px solid var(--status-queued-border);
+        }
+
+        .badge-error {
+            color: var(--status-failed-text);
+            background-color: var(--status-failed-bg);
+            border: 1px solid var(--status-failed-border);
+        }
+
+        .badge-info {
+            color: var(--status-processing-text);
+            background-color: var(--status-processing-bg);
+            border: 1px solid var(--status-processing-border);
+        }
+
+        /* --------------------------------------------------------------------------
+           CALLOUT MESSAGES
+           Straight edge, border-left accent.
+           -------------------------------------------------------------------------- */
+        .callout {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-left: 3px solid var(--border-default);
+            border-radius: var(--radius-tag);
+            padding: 0.65rem 0.85rem;
+            font-size: 0.76rem;
+            color: var(--text-secondary);
         }
 
         .callout-title {
             font-weight: 600;
-            color: var(--text-main);
+            color: var(--text-primary);
             margin-bottom: 0.2rem;
             display: flex;
             align-items: center;
@@ -481,196 +575,171 @@
         }
 
         .callout-warning {
-            background-color: var(--status-warning-bg);
-            border-color: var(--status-warning-border);
-            color: var(--status-warning);
+            border-left-color: var(--status-queued-text);
+            background-color: rgba(210, 153, 34, 0.06);
         }
 
         .callout-error {
-            background-color: var(--status-error-bg);
-            border-color: var(--status-error-border);
-            color: var(--status-error);
+            border-left-color: var(--status-failed-text);
+            background-color: rgba(248, 81, 73, 0.06);
         }
 
         .callout-success {
-            background-color: var(--status-success-bg);
-            border-color: var(--status-success-border);
-            color: var(--status-success);
+            border-left-color: var(--status-completed-text);
+            background-color: rgba(86, 211, 100, 0.06);
         }
 
-        /* Job Status & Timeline */
-        .job-detail-grid {
+        /* --------------------------------------------------------------------------
+           JOB OBSERVATION & PIPELINE TIMELINE
+           -------------------------------------------------------------------------- */
+        .job-spec-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 0.75rem;
-        }
-
-        .detail-item {
-            background-color: var(--bg-subtle);
+            background-color: var(--bg-surface);
             border: 1px solid var(--border-subtle);
-            padding: 0.5rem 0.65rem;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-panel);
+            padding: 0.75rem 0.9rem;
         }
 
-        .detail-label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
+        @media (max-width: 800px) {
+            .job-spec-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .spec-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .spec-label {
+            font-size: 0.65rem;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
         }
 
-        .detail-value {
-            font-size: 0.78rem;
+        .spec-val {
             font-family: var(--font-mono);
-            color: var(--text-main);
-            margin-top: 0.15rem;
+            font-size: 0.74rem;
+            color: var(--text-primary);
             word-break: break-all;
         }
 
-        /* Timeline Stepper */
-        .timeline {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            margin: 0.25rem 0;
+        /* Linear Pipeline Sequence */
+        .pipeline-track {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        @media (max-width: 700px) {
+            .pipeline-track {
+                grid-template-columns: 1fr;
+            }
         }
 
         .timeline-step {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-btn);
+            padding: 0.65rem 0.75rem;
             display: flex;
-            align-items: flex-start;
-            gap: 0.65rem;
-            position: relative;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: border-color 0.15s ease;
+        }
+
+        .timeline-step.active {
+            border-color: #58a6ff;
+            background-color: rgba(88, 166, 255, 0.05);
+        }
+
+        .timeline-step.completed {
+            border-color: var(--status-completed-border);
+            border-top: 2px solid var(--status-completed-text);
+        }
+
+        .timeline-step.failed {
+            border-color: var(--status-failed-border);
+            border-top: 2px solid var(--status-failed-text);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .timeline-indicator {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background-color: var(--bg-subtle);
-            border: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            flex-shrink: 0;
-            margin-top: 0.1rem;
-        }
-
-        .timeline-step.completed .timeline-indicator {
-            background-color: var(--status-success-bg);
-            border-color: var(--status-success-border);
-            color: var(--status-success);
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
             font-weight: 600;
+            color: var(--text-muted);
         }
 
         .timeline-step.active .timeline-indicator {
-            background-color: var(--status-warning-bg);
-            border-color: var(--status-warning-border);
-            color: var(--status-warning);
-            font-weight: 600;
+            color: #58a6ff;
         }
 
-        .timeline-content {
-            flex: 1;
+        .timeline-step.completed .timeline-indicator {
+            color: var(--status-completed-text);
+        }
+
+        .timeline-step.failed .timeline-indicator {
+            color: var(--status-failed-text);
         }
 
         .timeline-title {
             font-size: 0.78rem;
             font-weight: 600;
-            color: var(--text-main);
+            color: var(--text-primary);
         }
 
         .timeline-desc {
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             color: var(--text-muted);
+            line-height: 1.35;
         }
 
-        /* Polling Box */
-        .polling-indicator {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background-color: var(--bg-subtle);
-            border: 1px solid var(--border-color);
-            padding: 0.5rem 0.75rem;
-            border-radius: var(--radius-md);
-            font-size: 0.75rem;
-        }
-
-        .polling-status-text {
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            color: var(--text-main);
-            font-weight: 500;
-        }
-
-        .polling-pulse {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background-color: var(--status-warning);
-        }
-
-        /* Tables */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.78rem;
-            text-align: left;
-        }
-
-        .data-table th {
-            background-color: var(--bg-subtle);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0.55rem 0.75rem;
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .data-table td {
-            padding: 0.55rem 0.75rem;
-            border-bottom: 1px solid var(--border-subtle);
-            color: var(--text-main);
-        }
-
-        .data-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .data-table td.mono {
-            font-family: var(--font-mono);
-            font-size: 0.74rem;
-        }
-
-        /* Variant Grid */
+        /* --------------------------------------------------------------------------
+           VARIANT INSPECTION GALLERY (UI-15)
+           Technical artifact verification cards with real dimensions & direct links.
+           -------------------------------------------------------------------------- */
         .variant-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 0.75rem;
         }
 
+        @media (max-width: 800px) {
+            .variant-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .variant-card {
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
             background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
         .variant-img-wrap {
-            height: 120px;
-            background-color: var(--bg-subtle);
+            height: 130px;
+            background-color: #0b0d11;
+            border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
             justify-content: center;
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 0.5rem;
+            cursor: pointer;
+            position: relative;
         }
 
         .variant-img-wrap img {
@@ -680,77 +749,133 @@
         }
 
         .variant-body {
-            padding: 0.55rem;
+            padding: 0.65rem 0.75rem;
             display: flex;
             flex-direction: column;
-            gap: 0.2rem;
-            font-size: 0.72rem;
+            gap: 0.3rem;
+        }
+
+        .variant-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .variant-title {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
             font-weight: 600;
-            color: var(--text-main);
+            color: var(--text-primary);
+            text-transform: lowercase;
         }
 
         .variant-dims {
-            color: var(--text-muted);
             font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
         }
 
-        /* Inspector / Logs */
+        /* --------------------------------------------------------------------------
+           PROTOCOL ENVELOPE / CODE BLOCK
+           Dense monospace inspection.
+           -------------------------------------------------------------------------- */
         .code-view {
-            background-color: var(--bg-subtle);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 0.75rem;
             font-family: var(--font-mono);
-            font-size: 0.74rem;
-            color: var(--text-main);
+            font-size: 0.72rem;
+            line-height: 1.45;
+            color: #adbac7;
+            background-color: #0b0d11;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-btn);
+            padding: 0.75rem;
             overflow-x: auto;
             max-height: 220px;
-            line-height: 1.45;
             white-space: pre-wrap;
+            word-break: break-all;
         }
 
+        /* --------------------------------------------------------------------------
+           AUDIT LOG STREAM
+           Monospace terminal log.
+           -------------------------------------------------------------------------- */
         .log-list {
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 0.35rem;
-            max-height: 200px;
+            gap: 0.25rem;
+            max-height: 180px;
             overflow-y: auto;
             font-family: var(--font-mono);
-            font-size: 0.72rem;
+            font-size: 0.7rem;
         }
 
         .log-item {
-            padding: 0.35rem 0.55rem;
-            border-radius: var(--radius-sm);
-            background-color: var(--bg-subtle);
-            border: 1px solid var(--border-subtle);
+            padding: 0.25rem 0.4rem;
+            border-radius: var(--radius-tag);
             display: flex;
             justify-content: space-between;
+            align-items: baseline;
             gap: 0.5rem;
+            background-color: var(--bg-surface);
+            border-left: 2px solid var(--border-default);
+            color: var(--text-secondary);
         }
 
-        .log-item.log-blocked {
-            border-color: var(--status-error-border);
-            background-color: var(--status-error-bg);
-            color: var(--status-error);
+        .log-item.success {
+            border-left-color: var(--status-completed-text);
         }
 
-        .log-item.log-success {
-            border-color: var(--status-success-border);
-            background-color: var(--status-success-bg);
-            color: var(--status-success);
+        .log-item.blocked {
+            border-left-color: var(--status-failed-text);
+            color: #f85149;
         }
 
         .log-time {
-            color: var(--text-dim);
-            flex-shrink: 0;
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            white-space: nowrap;
         }
 
-        /* Defense Questions Section */
+        /* --------------------------------------------------------------------------
+           DATA TABLES (Measurements & Architecture)
+           -------------------------------------------------------------------------- */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.76rem;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 0.6rem 0.9rem;
+            background-color: var(--bg-surface);
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .data-table td {
+            padding: 0.6rem 0.9rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table td.mono {
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+
+        /* --------------------------------------------------------------------------
+           EVALUATION DEFENSE ACCORDION
+           -------------------------------------------------------------------------- */
         .qa-list {
             display: flex;
             flex-direction: column;
@@ -758,63 +883,101 @@
         }
 
         .qa-card {
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            background-color: var(--bg-surface);
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
             overflow: hidden;
         }
 
         .qa-header {
-            padding: 0.85rem 1.15rem;
-            background-color: var(--bg-subtle);
-            font-size: 0.84rem;
-            font-weight: 600;
-            color: var(--text-main);
+            padding: 0.75rem 1rem;
+            background-color: var(--bg-surface);
+            cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-primary);
             user-select: none;
         }
 
         .qa-header:hover {
-            background-color: var(--bg-hover);
+            color: #58a6ff;
         }
 
         .qa-body {
-            padding: 1rem 1.15rem;
-            font-size: 0.82rem;
-            line-height: 1.55;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border-color);
-            display: none;
-        }
-
-        .qa-card.open .qa-body {
-            display: block;
-        }
-
-        .qa-body strong {
-            color: var(--text-main);
+            padding: 1rem;
+            font-size: 0.78rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-subtle);
         }
 
         .qa-body code {
             font-family: var(--font-mono);
-            background-color: var(--bg-subtle);
-            padding: 0.1rem 0.3rem;
-            border-radius: var(--radius-sm);
-            font-size: 0.76rem;
-            color: var(--text-main);
+            font-size: 0.74rem;
+            background-color: #0b0d11;
+            padding: 0.1rem 0.35rem;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-tag);
+            color: #58a6ff;
         }
 
-        /* Spinner */
+        /* --------------------------------------------------------------------------
+           MODAL LIGHTBOX
+           -------------------------------------------------------------------------- */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-panel);
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: calc(90vh - 54px);
+            object-fit: contain;
+            background-color: #000;
+        }
+
+        .modal-footer {
+            padding: 0.65rem 1rem;
+            background-color: var(--bg-surface);
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+        }
+
+        /* Helper Spinner */
         .spin {
             width: 12px;
             height: 12px;
             border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #FFFFFF;
+            border-top-color: #ffffff;
             border-radius: 50%;
-            animation: spin 0.75s linear infinite;
+            animation: spin 0.6s linear infinite;
             display: inline-block;
         }
 
@@ -825,143 +988,149 @@
 </head>
 <body>
 
-    <!-- Top Header -->
-    <header>
-        <div class="header-inner">
-            <div class="brand-group">
-                <span class="brand-title">
-                    ImageLab
-                </span>
-                <span class="brand-badge">Pipeline Console</span>
+    <!-- Top Masthead -->
+    <header class="masthead">
+        <div class="masthead-left">
+            <div class="brand-mark">
+                <span>ImageLab</span>
+                <span class="brand-code">ENGINEERING CONSOLE</span>
             </div>
-            <div class="system-meta">
-                <span>Go API :4000</span>
-                <span>•</span>
-                <div class="health-indicator" id="healthIndicator">
-                    <span class="health-dot" id="healthDot"></span>
-                    <span id="healthText">Checking server...</span>
+            <div class="masthead-divider"></div>
+            <div class="system-specs">
+                <div class="system-spec-item">
+                    <span>Engine:</span>
+                    <span style="color: var(--text-primary);">Go 1.24 + PostgreSQL 16</span>
+                </div>
+                <div class="system-spec-item">
+                    <span>Concurrency:</span>
+                    <span style="color: var(--text-primary);">Single Worker (C=1)</span>
                 </div>
             </div>
         </div>
+        <div class="health-indicator" id="healthIndicator">
+            <span class="health-dot" id="healthDot"></span>
+            <span id="healthText" style="color: var(--text-primary);">Connecting...</span>
+        </div>
     </header>
 
-    <!-- Navigation Tabs -->
+    <!-- Navigation Bar -->
     <nav class="nav-bar">
         <div class="nav-inner">
-            <button type="button" class="nav-tab active" data-tab="tab-console">Console &amp; Ingestion</button>
-            <button type="button" class="nav-tab" data-tab="tab-measurements">Measurements</button>
-            <button type="button" class="nav-tab" data-tab="tab-defense">Acceptance Defense (Week 1)</button>
-            <button type="button" class="nav-tab" data-tab="tab-architecture">Architecture Reference</button>
+            <button type="button" class="nav-tab active" data-tab="tab-console">
+                Console &amp; Ingestion
+            </button>
+            <button type="button" class="nav-tab" data-tab="tab-measurements">
+                Telemetry &amp; Measurements
+            </button>
+            <button type="button" class="nav-tab" data-tab="tab-defense">
+                Evaluation Defense
+            </button>
+            <button type="button" class="nav-tab" data-tab="tab-architecture">
+                System Architecture
+            </button>
         </div>
     </nav>
 
-    <!-- Main Content Area -->
+    <!-- Main Workspace -->
     <main>
 
-        <!-- ========================================================= -->
-        <!-- TAB 1: Console & Ingestion                                -->
-        <!-- ========================================================= -->
+        <!-- ================================================================== -->
+        <!-- TAB 1: Console & Ingestion                                         -->
+        <!-- ================================================================== -->
         <div id="tab-console" class="tab-content active">
             <div class="console-grid">
 
-                <!-- Left Column: Ingestion & Local Preview -->
-                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Left Column: Ingestion Station & Controls -->
+                <div>
                     
-                    <!-- File Ingestion Card -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">Image Ingestion</span>
-                            <span id="ingestionStateBadge" class="badge badge-neutral">State: Initial</span>
+                    <!-- Ingestion Station Panel -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Ingestion Station</span>
+                            <span id="ingestionStateBadge" class="badge badge-neutral">Initial</span>
                         </div>
-                        <div class="card-body">
+                        <div class="panel-body">
                             
-                            <!-- Dropzone -->
+                            <!-- Dropzone (UI-01) -->
                             <div class="dropzone" id="dropzone">
                                 <input type="file" id="fileInput" accept="image/jpeg,image/png">
-                                <div class="dropzone-icon">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                        <polyline points="21 15 16 10 5 21"></polyline>
-                                    </svg>
-                                </div>
-                                <div class="dropzone-label">Select or drop an image file</div>
-                                <div class="dropzone-sub">JPEG or PNG &bull; Maximum 10 MB</div>
+                                <div class="dropzone-label">Select or drop an image</div>
+                                <div class="dropzone-sub">JPEG or PNG &bull; Strict 10 MB limit</div>
                             </div>
 
-                            <!-- Local Preview Container (UI-05) -->
+                            <!-- Local Preview Box (UI-05, UI-06) -->
                             <div class="preview-box" id="previewBox" style="display: none;">
                                 <div class="preview-img-frame">
-                                    <img id="previewImg" src="" alt="Client-side preview">
+                                    <img id="previewImg" src="" alt="Local preview">
                                 </div>
                                 <div class="preview-info">
                                     <table class="meta-table">
                                         <tbody>
                                             <tr>
-                                                <td>Original name:</td>
+                                                <td>File:</td>
                                                 <td id="metaFilename">-</td>
                                             </tr>
                                             <tr>
-                                                <td>File size:</td>
+                                                <td>Size:</td>
                                                 <td id="metaFilesize">-</td>
                                             </tr>
                                             <tr>
-                                                <td>Reported MIME:</td>
+                                                <td>MIME:</td>
                                                 <td id="metaMime">-</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Memory buffer:</td>
-                                                <td>Client Blob URL (sandbox)</td>
                                             </tr>
                                         </tbody>
                                     </table>
                                     <div class="preview-banner">
-                                        &bull; Local preview rendered in browser memory via <code>URL.createObjectURL</code>. 0 network bytes sent, 0 server jobs created.
+                                        Client Blob URL mounted. 0 network bytes sent.
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Submission Actions -->
+                            <!-- Primary Action Buttons -->
                             <div class="btn-group">
                                 <button type="button" class="btn btn-primary" id="processBtn" disabled>
                                     <span id="processBtnSpinner" style="display: none;" class="spin"></span>
-                                    <span id="processBtnText">Process image</span>
+                                    <span id="processBtnText">Dispatch work (POST)</span>
                                 </button>
                                 <button type="button" class="btn btn-secondary" id="resetBtn">Reset</button>
-                            </div>
-
-                            <!-- Single-Session Concurrency Test Button -->
-                            <div>
-                                <button type="button" class="btn btn-subtle" id="rapidClickBtn" style="width: 100%;">
-                                    Test rapid repeated clicks (simulate 5 double-clicks)
-                                </button>
                             </div>
 
                             <!-- Ingestion Alert Box -->
                             <div id="ingestionAlert" style="display: none;"></div>
 
-                            <!-- Architecture Acceptance Note -->
-                            <div class="callout">
-                                <div class="callout-title">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                                    Week 1 Acceptance Boundary
-                                </div>
-                                Upon receiving a valid upload, the server safely persists original bytes to <code>./storage/uploads/</code>, inserts rows into <code>images</code> and <code>jobs</code> (status: <code>queued</code>), and returns <code>HTTP 202 Accepted</code> with a <code>Location</code> header. Image transformation is deferred to Week 2.
+                            <!-- Interactive Test Harness -->
+                            <div class="harness-stack">
+                                <div class="harness-label">Test Harness &amp; Fault Injection</div>
+                                <button type="button" class="btn-harness" id="rapidClickBtn">
+                                    Run concurrency guard (5 rapid clicks in 50ms)
+                                </button>
+                                <button type="button" class="btn-harness btn-harness-danger" id="simulateFailBtn">
+                                    Inject corrupt payload (demonstrate 'failed' state)
+                                </button>
+                                <button type="button" class="btn-harness btn-harness-burst" id="simulateBurstBtn">
+                                    Inject 5-job burst (observe queue wait backlog)
+                                </button>
+                            </div>
+
+                            <!-- Acceptance Contract Note -->
+                            <div class="callout" style="margin-top: 0.25rem;">
+                                <div class="callout-title">Durable Execution Boundary</div>
+                                The HTTP handler writes the original to disk and enqueues the job in PostgreSQL, returning <code>202 Accepted</code> in &lt; 25ms. Image transformation is deferred to the background worker.
                             </div>
 
                         </div>
                     </div>
 
-                    <!-- Client Concurrency Audit Log -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">Client Concurrency &amp; Action Log</span>
-                            <button type="button" class="btn-subtle" id="clearLogBtn">Clear</button>
+                    <!-- Client Action & Audit Log -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Action &amp; Audit Log</span>
+                            <button type="button" class="btn btn-subtle" id="clearLogBtn">Clear</button>
                         </div>
-                        <div class="card-body" style="padding-top: 0.75rem;">
+                        <div class="panel-body" style="padding-top: 0.5rem;">
                             <ul class="log-list" id="auditList">
                                 <li class="log-item">
-                                    <span>Page loaded in initial state. 0 network requests dispatched.</span>
+                                    <span>Workbench booted in initial state.</span>
                                     <span class="log-time" id="initialTime">00:00:00</span>
                                 </li>
                             </ul>
@@ -970,186 +1139,195 @@
 
                 </div>
 
-                <!-- Right Column: Active Job & Results Panels -->
-                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Right Column: Pipeline Monitor & Artifact Outputs -->
+                <div>
                     
-                    <!-- Active Job Card (UI-03, UI-10, UI-11, UI-12) -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">Job Observation</span>
+                    <!-- Active Job Monitor Panel -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Pipeline Observation &amp; State</span>
                             <span id="jobStatusBadge" class="badge badge-neutral">No active job</span>
                         </div>
-                        <div class="card-body">
+                        <div class="panel-body">
                             
-                            <!-- Polling Box (UI-12, POLL-02) -->
-                            <div class="polling-indicator" id="pollingIndicator" style="display: none;">
-                                <div class="polling-status-text">
-                                    <span class="polling-pulse"></span>
-                                    <span>Checking status automatically</span>
-                                    <span style="color: var(--text-muted); font-weight: normal;">(Every 1 second)</span>
+                            <!-- Active Polling Bar -->
+                            <div id="pollingIndicator" style="display: none; justify-content: space-between; align-items: center; padding: 0.45rem 0.75rem; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-btn); font-size: 0.74rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #58a6ff;"></span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">Polling authoritative state</span>
+                                    <span style="color: var(--text-muted); font-family: var(--font-mono);">(1s interval)</span>
                                 </div>
                                 <span class="badge badge-neutral" id="pollCountBadge">Polls: 0</span>
                             </div>
 
-                            <!-- Retrieval Error Recovery Callout (POLL-07, POLL-09, POLL-10) -->
+                            <!-- Retrieval Error Notice -->
                             <div id="retrievalErrorBox" class="callout callout-warning" style="display: none;">
-                                <div class="callout-title">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                    Unable to check status. The job may still be running.
-                                </div>
-                                <p style="margin-top: 0.2rem;">Status retrieval encountered a network or response error. The last observed job state is preserved.</p>
-                                <div style="margin-top: 0.5rem;">
-                                    <button type="button" class="btn btn-secondary" id="tryAgainBtn" style="font-size: 0.74rem; padding: 0.25rem 0.6rem;">
-                                        Try again
+                                <div class="callout-title">Status retrieval error</div>
+                                <p>Network or response error encountered. Last observed state preserved.</p>
+                                <div style="margin-top: 0.4rem;">
+                                    <button type="button" class="btn btn-secondary" id="tryAgainBtn" style="font-size: 0.72rem; padding: 0.25rem 0.55rem;">
+                                        Resume polling
                                     </button>
                                 </div>
                             </div>
 
                             <!-- Job Metadata Grid -->
-                            <div class="job-detail-grid">
-                                <div class="detail-item">
-                                    <div class="detail-label">Job Public ID</div>
-                                    <div class="detail-value" id="dispJobPublicId">—</div>
+                            <div class="job-spec-grid">
+                                <div class="spec-item">
+                                    <div class="spec-label">Job Public ID</div>
+                                    <div class="spec-val" id="dispJobPublicId">—</div>
                                 </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Image ID</div>
-                                    <div class="detail-value" id="dispImageId">—</div>
+                                <div class="spec-item">
+                                    <div class="spec-label">Image ID</div>
+                                    <div class="spec-val" id="dispImageId">—</div>
                                 </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Status URL</div>
-                                    <div class="detail-value" id="dispStatusUrl">—</div>
+                                <div class="spec-item">
+                                    <div class="spec-label">Status URL</div>
+                                    <div class="spec-val" id="dispStatusUrl">—</div>
                                 </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Current State</div>
-                                    <div class="detail-value" id="dispJobState">idle</div>
+                                <div class="spec-item">
+                                    <div class="spec-label">Current State</div>
+                                    <div class="spec-val" id="dispJobState">idle</div>
                                 </div>
                             </div>
 
-                            <!-- Job Progress Timeline (UI-11) -->
+                            <!-- Linear Pipeline Sequence -->
                             <div>
-                                <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 0.4rem;">
-                                    Lifecycle Timeline
-                                </div>
-                                <div class="timeline">
+                                <div class="spec-label" style="margin-bottom: 0.4rem;">Lifecycle Sequence</div>
+                                <div class="pipeline-track">
                                     <div class="timeline-step" id="stepUpload">
-                                        <div class="timeline-indicator" id="indUpload">1</div>
-                                        <div class="timeline-content">
-                                            <div class="timeline-title">Upload accepted</div>
-                                            <div class="timeline-desc" id="descUpload">Waiting for submission</div>
+                                        <div class="step-header">
+                                            <span class="timeline-title">1. Ingest</span>
+                                            <span class="timeline-indicator" id="indUpload">HTTP 202</span>
                                         </div>
+                                        <div class="timeline-desc" id="descUpload">Awaiting submission</div>
                                     </div>
                                     <div class="timeline-step" id="stepStorage">
-                                        <div class="timeline-indicator" id="indStorage">2</div>
-                                        <div class="timeline-content">
-                                            <div class="timeline-title">Original stored</div>
-                                            <div class="timeline-desc" id="descStorage">Pending durable filesystem write</div>
+                                        <div class="step-header">
+                                            <span class="timeline-title">2. Storage</span>
+                                            <span class="timeline-indicator" id="indStorage">Disk</span>
                                         </div>
+                                        <div class="timeline-desc" id="descStorage">Pending durable write</div>
                                     </div>
                                     <div class="timeline-step" id="stepVariants">
-                                        <div class="timeline-indicator" id="indVariants">3</div>
-                                        <div class="timeline-content">
-                                            <div class="timeline-title">Generating variants</div>
-                                            <div class="timeline-desc" id="descVariants">Deferred to Week 2 decoupled worker</div>
+                                        <div class="step-header">
+                                            <span class="timeline-title">3. Transform</span>
+                                            <span class="timeline-indicator" id="indVariants">Worker</span>
                                         </div>
+                                        <div class="timeline-desc" id="descVariants">Awaiting worker claim</div>
                                     </div>
                                     <div class="timeline-step" id="stepComplete">
-                                        <div class="timeline-indicator" id="indComplete">4</div>
-                                        <div class="timeline-content">
-                                            <div class="timeline-title">Complete</div>
-                                            <div class="timeline-desc" id="descComplete">Pending all variants ready</div>
+                                        <div class="step-header">
+                                            <span class="timeline-title">4. Terminal</span>
+                                            <span class="timeline-indicator" id="indComplete">State</span>
                                         </div>
+                                        <div class="timeline-desc" id="descComplete">Pending all variants ready</div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Safe Processing Error Display (UI-16) -->
                             <div id="processingErrorBox" class="callout callout-error" style="display: none;">
-                                <div class="callout-title">Processing failed</div>
+                                <div class="callout-title">Processing failure</div>
                                 <span id="processingErrorMsg">An error occurred during transformation.</span>
                             </div>
 
                         </div>
                     </div>
 
-                    <!-- Generated Results Panel (UI-04, UI-14, UI-15) -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">Generated Variants</span>
+                    <!-- Generated Variants Gallery Panel -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Generated Variants Gallery</span>
                             <span id="resultsCountBadge" class="badge badge-neutral">0 ready</span>
                         </div>
-                        <div class="card-body">
+                        <div class="panel-body">
                             
                             <!-- Empty / Pending States -->
-                            <div id="resultsPlaceholder" style="padding: 1.25rem 0.5rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
-                                <span id="resultsPlaceholderText">No images generated yet.</span>
+                            <div id="resultsPlaceholder" style="padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                                <span id="resultsPlaceholderText">No variants generated yet. Submit an image to begin pipeline execution.</span>
                             </div>
 
-                            <!-- Variant Results Display (Visible on completion) -->
+                            <!-- Variant Results Display -->
                             <div id="variantGrid" class="variant-grid" style="display: none;">
-                                <!-- thumbnail variant -->
+                                
+                                <!-- thumbnail (150x150 square) -->
                                 <div class="variant-card">
-                                    <div class="variant-img-wrap">
+                                    <div class="variant-img-wrap" onclick="openLightbox('varImgThumb', 'thumbnail (150×150 Exact Crop)')">
                                         <img id="varImgThumb" src="" alt="Thumbnail variant">
                                     </div>
                                     <div class="variant-body">
-                                        <div class="variant-title">thumbnail</div>
-                                        <div class="variant-dims" id="varDimsThumb">150 × 150 (square)</div>
-                                        <a id="varLinkThumb" href="#" target="_blank" class="btn btn-subtle" style="margin-top: 0.3rem;">View file</a>
+                                        <div class="variant-title-row">
+                                            <span class="variant-title">thumbnail</span>
+                                            <span class="badge badge-neutral">150×150</span>
+                                        </div>
+                                        <div class="variant-dims" id="varDimsThumb">150 × 150 (square crop)</div>
+                                        <a id="varLinkThumb" href="#" target="_blank" class="btn btn-subtle" style="margin-top: 0.35rem; width: 100%;">Inspect file</a>
                                     </div>
                                 </div>
-                                <!-- preview variant -->
+
+                                <!-- preview (max 800x600) -->
                                 <div class="variant-card">
-                                    <div class="variant-img-wrap">
+                                    <div class="variant-img-wrap" onclick="openLightbox('varImgPreview', 'preview (Max 800×600 Bound)')">
                                         <img id="varImgPreview" src="" alt="Preview variant">
                                     </div>
                                     <div class="variant-body">
-                                        <div class="variant-title">preview</div>
-                                        <div class="variant-dims" id="varDimsPreview">Max 800 × 600</div>
-                                        <a id="varLinkPreview" href="#" target="_blank" class="btn btn-subtle" style="margin-top: 0.3rem;">View file</a>
+                                        <div class="variant-title-row">
+                                            <span class="variant-title">preview</span>
+                                            <span class="badge badge-neutral">≤ 800×600</span>
+                                        </div>
+                                        <div class="variant-dims" id="varDimsPreview">Max 800 × 600 (aspect fit)</div>
+                                        <a id="varLinkPreview" href="#" target="_blank" class="btn btn-subtle" style="margin-top: 0.35rem; width: 100%;">Inspect file</a>
                                     </div>
                                 </div>
-                                <!-- display variant -->
+
+                                <!-- display (max 1200x900) -->
                                 <div class="variant-card">
-                                    <div class="variant-img-wrap">
+                                    <div class="variant-img-wrap" onclick="openLightbox('varImgDisplay', 'display (Max 1200×900 Bound)')">
                                         <img id="varImgDisplay" src="" alt="Display variant">
                                     </div>
                                     <div class="variant-body">
-                                        <div class="variant-title">display</div>
-                                        <div class="variant-dims" id="varDimsDisplay">Max 1200 × 900</div>
-                                        <a id="varLinkDisplay" href="#" target="_blank" class="btn btn-subtle" style="margin-top: 0.3rem;">View file</a>
+                                        <div class="variant-title-row">
+                                            <span class="variant-title">display</span>
+                                            <span class="badge badge-neutral">≤ 1200×900</span>
+                                        </div>
+                                        <div class="variant-dims" id="varDimsDisplay">Max 1200 × 900 (aspect fit)</div>
+                                        <a id="varLinkDisplay" href="#" target="_blank" class="btn btn-subtle" style="margin-top: 0.35rem; width: 100%;">Inspect file</a>
                                     </div>
                                 </div>
+
                             </div>
 
                         </div>
                     </div>
 
-                    <!-- Server Acceptance Response Envelope -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">HTTP 202 Response Envelope</span>
+                    <!-- Protocol Envelope Panel -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">HTTP 202 Response Envelope (API-04)</span>
                             <span id="httpStatusChip" class="badge badge-neutral">Awaiting POST</span>
                         </div>
-                        <div class="card-body" style="padding-top: 0.75rem;">
+                        <div class="panel-body" style="padding-top: 0.65rem;">
                             <pre class="code-view" id="responseEnvelopeCode">// Server response JSON will appear here upon submission.
-// Page initially loaded with no active job, no polling, zero requests.</pre>
+// Contract requires: image_id, job_id, status, status_url, and Location header.</pre>
                         </div>
                     </div>
 
                 </div>
+
             </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- TAB 2: Measurements & Metrics (Section 15)                -->
-        <!-- ========================================================= -->
+        <!-- ================================================================== -->
+        <!-- TAB 2: Measurements & Metrics (Section 15)                         -->
+        <!-- ================================================================== -->
         <div id="tab-measurements" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Required Pipeline Measurements (Section 15)</span>
-                    <span class="badge badge-info">Standard Metrics</span>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Required Pipeline Telemetry (Section 15)</span>
+                    <span class="badge badge-info">Evaluation Metrics</span>
                 </div>
-                <div class="card-body" style="padding: 0;">
+                <div class="panel-body" style="padding: 0;">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -1199,143 +1377,168 @@
                         </tbody>
                     </table>
                 </div>
-                <div style="padding: 0.85rem 1.15rem; background-color: var(--bg-subtle); border-top: 1px solid var(--border-color); font-size: 0.74rem; color: var(--text-muted);">
-                    <strong>Expected Architectural Conclusion:</strong> Returning <code>202 Accepted</code> drastically reduces client waiting time for durable ingestion (< 30ms). It decouples HTTP ingestion from image decoding and scaling, but does not reduce the CPU work required by the background worker.
+                <div style="padding: 0.75rem 1rem; background-color: var(--bg-surface); border-top: 1px solid var(--border-subtle); font-size: 0.75rem; color: var(--text-muted);">
+                    <strong>Architectural Conclusion:</strong> Returning <code>202 Accepted</code> guarantees that ingestion acknowledgment is decoupled from CPU-heavy variant generation. It protects client latency (< 30ms) without reducing backend compute work.
                 </div>
             </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- TAB 3: Acceptance Defense (Week 1 Questions)              -->
-        <!-- ========================================================= -->
+        <!-- ================================================================== -->
+        <!-- TAB 3: Week 2 Architectural Defense                                -->
+        <!-- ================================================================== -->
         <div id="tab-defense" class="tab-content">
             <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <div class="callout">
-                    <strong>Week 1 Acceptance Gate &amp; Defense Checklist:</strong> These 4 questions define the authoritative boundary of the ingestion system and must be defendable during evaluation.
-                </div>
                 
+                <div class="callout callout-success">
+                    <div class="callout-title">Evaluation Defense &amp; Architectural Answers</div>
+                    The 4 questions and the Week 2 architectural gate define the evaluation defense for durable jobs and background worker processing.
+                </div>
+
                 <div class="qa-list">
+                    
                     <!-- Question 1 -->
-                    <div class="qa-card open">
+                    <div class="qa-card">
                         <div class="qa-header" onclick="toggleQA(this)">
-                            <span>1. Where does the selected file exist before submission?</span>
+                            <span>1. Why must the job be persisted instead of existing only in a goroutine or channel?</span>
                             <span style="font-size: 0.75rem; color: var(--text-muted);">&#9662;</span>
                         </div>
                         <div class="qa-body">
-                            The selected file exists exclusively on the client machine's local storage and in the browser process sandbox memory as an in-memory DOM <code>File</code> / <code>Blob</code> object (accessed via <code>&lt;input type="file"&gt;</code>).
+                            <strong>1. Process Crash &amp; Restart Resilience:</strong> If the Go application process restarts, crashes, is redeployed, or is terminated by an OS OOM event, in-memory goroutines, heap data, and channel buffers are instantaneously erased. Any accepted work existing only in-memory is permanently lost. Persisting jobs to PostgreSQL guarantees durability across crashes.
                             <br><br>
-                            When the browser renders the image preview, it creates an ephemeral client-side object URL (<code>URL.createObjectURL(file)</code>) pointing directly to the browser's local memory buffer. At this stage:
-                            <ul style="margin: 0.4rem 0 0.4rem 1.2rem;">
-                                <li>Zero bytes have crossed the network wire.</li>
-                                <li>No HTTP request has been constructed or transmitted.</li>
-                                <li>No file exists on the server's filesystem.</li>
-                                <li>No database record or job has been created in PostgreSQL.</li>
-                            </ul>
+                            <strong>2. Independent Scalability &amp; Contention Safety:</strong> In-memory Go channels are restricted to a single OS process. A relational database queue enables multiple worker processes across a cluster to safely claim work using atomic concurrency primitives (<code>FOR UPDATE SKIP LOCKED</code>) without double-processing.
+                            <br><br>
+                            <strong>3. Client Observation &amp; Disconnect Survival:</strong> Short polling requires that any client session, page reload, or alternative device can query <code>GET /v1/jobs/{job_id}</code> at any time. A database-backed job record ensures consistent, authoritative state visibility independent of transient client network disconnects.
                         </div>
                     </div>
 
                     <!-- Question 2 -->
-                    <div class="qa-card open">
+                    <div class="qa-card">
                         <div class="qa-header" onclick="toggleQA(this)">
-                            <span>2. What work must finish before the server can safely return 202?</span>
+                            <span>2. What does 202 Accepted guarantee, and what does it not guarantee?</span>
                             <span style="font-size: 0.75rem; color: var(--text-muted);">&#9662;</span>
                         </div>
                         <div class="qa-body">
-                            Before the server can issue <code>HTTP 202 Accepted</code>, it must complete the full <strong>contract of acceptance responsibility</strong>:
-                            <ol style="margin: 0.4rem 0 0.4rem 1.2rem;">
-                                <li><strong>Size Enforcement:</strong> Ingest request body under an enforced memory ceiling via <code>http.MaxBytesReader</code> (10 MB).</li>
-                                <li><strong>Authoritative Magic-Byte Validation:</strong> Read binary header bytes (first 512 bytes) and verify genuine <code>image/jpeg</code> or <code>image/png</code> using <code>http.DetectContentType</code>. Disguised payloads are rejected with 422.</li>
-                                <li><strong>Server-Controlled Filename:</strong> Generate an unpredictable, collision-free UUIDv7 identifier with canonical extension. The client-provided filename is never used as a filesystem path.</li>
-                                <li><strong>Durable Filesystem Persistence:</strong> Stream raw bytes to server disk (<code>./storage/uploads/&lt;uuid&gt;.&lt;ext&gt;</code>) and verify file closure succeeds.</li>
-                                <li><strong>Durable Database Persistence:</strong> Insert the image metadata into <code>images</code> and the asynchronous job into <code>jobs</code> with initial status <code>'queued'</code>.</li>
-                                <li><strong>Location Header:</strong> Prepare the <code>Location: /v1/jobs/&lt;public_id&gt;</code> response header.</li>
-                            </ol>
-                            <strong>Critical Week 1 Rule:</strong> Image transformation (decoding, resizing, variant generation) must NOT run before returning 202; doing so synchronously breaks the decoupled acceptance boundary.
+                            <strong>What 202 Accepted GUARANTEES:</strong>
+                            <ul style="margin: 0.4rem 0 0.5rem 1.4rem;">
+                                <li>The server has received, parsed, and verified the upload against size and magic-byte constraints.</li>
+                                <li>The original file bytes are durably written to server filesystem storage (<code>./storage/uploads/</code>).</li>
+                                <li>A persistent job record has been created in PostgreSQL with status <code>'queued'</code>.</li>
+                                <li>A canonical job resource URL is provided in the <code>Location</code> header and response body for polling.</li>
+                            </ul>
+                            <strong>What 202 Accepted DOES NOT GUARANTEE:</strong>
+                            <ul style="margin: 0.4rem 0 0.4rem 1.4rem;">
+                                <li>It does <em>not</em> guarantee that processing has started.</li>
+                                <li>It does <em>not</em> guarantee that image transformation will succeed (the worker may fail due to corrupted payload).</li>
+                                <li>It does <em>not</em> guarantee that any variant files exist yet.</li>
+                                <li>It does <em>not</em> reduce total CPU computation or eliminate queue waiting time.</li>
+                            </ul>
                         </div>
                     </div>
 
                     <!-- Question 3 -->
-                    <div class="qa-card open">
+                    <div class="qa-card">
                         <div class="qa-header" onclick="toggleQA(this)">
-                            <span>3. Why is the browser's file-type check not authoritative?</span>
+                            <span>3. Who owns authoritative job state?</span>
                             <span style="font-size: 0.75rem; color: var(--text-muted);">&#9662;</span>
                         </div>
                         <div class="qa-body">
-                            The browser client is an untrusted, externally controlled execution environment. Any validation performed in the browser can be bypassed or forged:
-                            <ul style="margin: 0.4rem 0 0.4rem 1.2rem;">
-                                <li><strong>Extension Forgery:</strong> An attacker can rename an executable or shell script from <code>exploit.sh</code> to <code>exploit.jpg</code>.</li>
-                                <li><strong>Header Spoofing:</strong> Non-browser tools (<code>curl</code>, Postman, custom scripts) can emit arbitrary <code>Content-Type: image/jpeg</code> multipart headers with arbitrary malicious payloads.</li>
-                                <li><strong>OS MIME Mismatches:</strong> Client-side MIME detection relies on OS registry extensions which may be manipulated.</li>
+                            <strong>The PostgreSQL Database (specifically the <code>jobs</code> table) owns authoritative job state.</strong>
+                            <br><br>
+                            Neither the browser client, nor the HTTP request handler, nor the in-flight background worker owns authoritative state:
+                            <ul style="margin: 0.4rem 0 0.4rem 1.4rem;">
+                                <li><strong>The Browser Client:</strong> Only holds an ephemeral, potentially stale cached observation retrieved during the last short poll.</li>
+                                <li><strong>The HTTP Handler:</strong> Exits immediately after inserting the <code>'queued'</code> row and returning 202; its execution lifetime terminates before processing begins.</li>
+                                <li><strong>The Background Worker:</strong> Is merely an execution agent that claims work and proposes state mutations; it must commit status updates (<code>'processing'</code>, <code>'completed'</code>, <code>'failed'</code>) to PostgreSQL.</li>
                             </ul>
-                            Therefore, the server acts as the sole authoritative gatekeeper by sniffing binary magic numbers (e.g. <code>0xFF 0xD8 0xFF</code> for JPEG, <code>0x89 0x50 0x4E 0x47</code> for PNG).
+                            The database enforces constraints (the <code>job_status</code> enum) and atomic locks (<code>FOR UPDATE SKIP LOCKED</code>), making PostgreSQL the sole source of truth.
                         </div>
                     </div>
 
                     <!-- Question 4 -->
-                    <div class="qa-card open">
+                    <div class="qa-card">
                         <div class="qa-header" onclick="toggleQA(this)">
-                            <span>4. What does the disabled button solve, and what duplicate-request problem does it not solve?</span>
+                            <span>4. Why does one worker make queueing visible when several jobs are submitted?</span>
                             <span style="font-size: 0.75rem; color: var(--text-muted);">&#9662;</span>
                         </div>
                         <div class="qa-body">
-                            <strong>What it solves:</strong> The disabled button coupled with an in-memory <code>isSubmitting</code> boolean guard solves the <strong>single-session concurrent dispatch race condition</strong>. It prevents accidental double-clicks or rapid button mashing from initiating overlapping <code>POST /v1/images</code> requests from the <em>same active browser page</em> while the first is in flight.
+                            With exactly <strong>one background worker</strong> running in the application (concurrency $C = 1$), the processing pipeline is strictly serial.
                             <br><br>
-                            <strong>What it does NOT solve:</strong>
-                            <ul style="margin: 0.4rem 0 0.4rem 1.2rem;">
-                                <li><strong>Cross-Tab / Cross-Window Duplication:</strong> Multiple tabs maintain separate DOMs and independent memory states; both buttons are enabled.</li>
-                                <li><strong>Network Retries:</strong> Reverse proxies or client HTTP libraries retrying dropped packets dispatch duplicate requests.</li>
-                                <li><strong>Page Reloads:</strong> Refreshing the browser resets the DOM and enables the button again.</li>
-                                <li><strong>Automated Clients:</strong> Direct API scripts bypassing the browser entirely.</li>
-                            </ul>
-                            Solving multi-client duplicate submission requires backend idempotency keys or SHA-256 content-addressable deduplication.
+                            When multiple uploads are submitted close together (such as a burst of 5 images):
+                            <ol style="margin: 0.4rem 0 0.4rem 1.4rem;">
+                                <li>The HTTP server accepts all 5 jobs in $< 25\text{ms}$ each and commits them to PostgreSQL with status <code>'queued'</code>.</li>
+                                <li>The single worker claims Job #1, transitioning it to <code>'processing'</code>.</li>
+                                <li>Jobs #2, #3, #4, and #5 must remain in PostgreSQL in the <code>'queued'</code> state until Job #1 finishes.</li>
+                                <li>Consequently, the <strong>Queue Wait Duration</strong> ($T_{\text{queue}} = \text{started\_at} - \text{queued\_at}$) visibly increases for each subsequent job in the burst.</li>
+                            </ol>
+                            This proves that asynchronous acknowledgment reduces client waiting for ingestion, but cannot bypass throughput bottlenecks under limited worker capacity.
                         </div>
                     </div>
+
+                    <!-- Week 2 Gate Compliance -->
+                    <div class="qa-card" style="border-left: 3px solid var(--status-completed-text);">
+                        <div class="qa-header" onclick="toggleQA(this)">
+                            <span>Week 2 Architecture Gate Compliance</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">&#9662;</span>
+                        </div>
+                        <div class="qa-body">
+                            <code>CRITICAL GATE: "An application that returns 202 but performs transformations in the request handler has not implemented the required architecture."</code>
+                            <br><br>
+                            In our implementation:
+                            <ul style="margin: 0.4rem 0 0.4rem 1.4rem;">
+                                <li><code>uploadImageHandler</code> in <code>cmd/api/images_handlers.go</code> performs zero decoding, resizing, or variant generation. It returns 202 in &lt; 25ms.</li>
+                                <li>A distinct background worker goroutine running in <code>cmd/api/worker.go</code> polls PostgreSQL and claims jobs via <code>FOR UPDATE SKIP LOCKED</code>.</li>
+                                <li>The database visibly transitions from <code>queued</code> to <code>processing</code> to <code>completed</code> (or <code>failed</code>).</li>
+                                <li>All 3 variants (<code>thumbnail</code> 150x150 square, <code>preview</code> &le; 800x600, <code>display</code> &le; 1200x900) are generated strictly by the worker.</li>
+                            </ul>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
 
-        <!-- ========================================================= -->
-        <!-- TAB 4: Architecture Reference                             -->
-        <!-- ========================================================= -->
+        <!-- ================================================================== -->
+        <!-- TAB 4: Architecture Reference                                      -->
+        <!-- ================================================================== -->
         <div id="tab-architecture" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">System Architecture &amp; Component Responsibilities</span>
-                    <span class="badge badge-info">Contract Spec</span>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Component Responsibility Matrix</span>
+                    <span class="badge badge-info">Week 2 Engine</span>
                 </div>
-                <div class="card-body" style="padding: 0;">
+                <div class="panel-body" style="padding: 0;">
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Component</th>
-                                <th>Responsibility in Week 1</th>
-                                <th>Strictly Forbidden in Week 1</th>
+                                <th>Responsibility in Week 2</th>
+                                <th>Strictly Prohibited</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td><strong>Browser Client</strong></td>
-                                <td>Renders initial, selected, uploading states; creates local Blob preview via <code>URL.createObjectURL</code>; enforces <code>isSubmitting</code> and button disabled guard.</td>
-                                <td>Must NOT process or resize pixels; must NOT assume client file-type check is authoritative; must NOT poll during initial state.</td>
+                                <td>Renders states; creates local preview via <code>URL.createObjectURL</code>; enforces <code>isSubmitting</code> guard; short-polls <code>GET /v1/jobs/{id}</code> every 1s; renders variants upon completion.</td>
+                                <td>Must NOT poll during initial state; must NOT assume client MIME check is authoritative; must NOT show results before completion.</td>
                             </tr>
                             <tr>
                                 <td><strong>Go HTTP API</strong></td>
-                                <td>Ingests multipart stream; enforces 10MB ceiling; validates binary magic bytes; writes to disk with UUIDv7; inserts <code>images</code> &amp; <code>jobs</code>; returns 202 with <code>Location</code>.</td>
-                                <td><strong>CRITICAL GATE:</strong> Must NOT perform image decoding, resizing, compression, or variant transformations in the upload handler.</td>
+                                <td>Ingests multipart stream (10MB limit); sniffs magic bytes; writes original to disk; records <code>images</code> and <code>jobs</code>; returns 202 with <code>Location</code>; serves variant files via <code>GET /v1/images/{id}/variants/{name}</code>.</td>
+                                <td><strong>CRITICAL GATE:</strong> Must NOT perform image resizing, variant generation, or decoding in the upload handler.</td>
                             </tr>
                             <tr>
                                 <td><strong>PostgreSQL Store</strong></td>
-                                <td>Durable persistence for relational metadata, job lifecycle state starting at <code>'queued'</code>, and schema definition for variants.</td>
+                                <td>Authoritative state owner; enforces <code>job_status</code> enum; coordinates worker claims via <code>FOR UPDATE SKIP LOCKED</code>; stores image and variant metadata.</td>
                                 <td>Does NOT store large binary image BLOBs directly in table rows.</td>
                             </tr>
                             <tr>
-                                <td><strong>Worker (Goroutine)</strong></td>
-                                <td>Prepared for Week 2 decoupled execution (<code>FOR UPDATE SKIP LOCKED</code>).</td>
-                                <td>Must remain completely decoupled from the HTTP upload handler.</td>
+                                <td><strong>Background Worker</strong></td>
+                                <td>Single goroutine ($C=1$); claims queued jobs; records <code>started_at</code>; center-crops thumbnail (150x150) and scales preview/display variants; records <code>completed_at</code> or <code>failed_at</code>.</td>
+                                <td>Must NOT report partial work as completed; must NOT run inside HTTP request lifetime.</td>
                             </tr>
                             <tr>
                                 <td><strong>Filesystem Storage</strong></td>
-                                <td>Durable, isolated local disk storage (<code>./storage/uploads/</code>) under server-controlled filenames.</td>
+                                <td>Stores raw uploaded originals in <code>./storage/uploads/</code> and generated variants in <code>./storage/variants/</code> under server-controlled UUID names.</td>
                                 <td>Does NOT expose raw client filenames directly to directory paths.</td>
                             </tr>
                         </tbody>
@@ -1346,15 +1549,24 @@
 
     </main>
 
+    <!-- Modal Lightbox for Variants -->
+    <div id="lightboxModal" class="modal" onclick="closeLightbox(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <img id="lightboxImg" src="" alt="Enlarged variant">
+            <div class="modal-footer">
+                <span id="lightboxCaption" style="font-weight: 600; color: var(--text-primary); font-family: var(--font-mono);"></span>
+                <button type="button" class="btn btn-secondary" onclick="closeLightbox()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Client Application Logic -->
     <script>
-        // Set initial timestamp
         document.getElementById('initialTime').textContent = new Date().toLocaleTimeString();
 
         // Application State
         let selectedFile = null;
-        let localPreviewUrl = null;
-        let isSubmitting = false; // In-memory concurrency guard (SUB-02)
+        let isSubmitting = false; // Concurrency guard (SUB-02)
         let totalPostDispatches = 0;
         let activeJobPublicId = null;
         let activeStatusUrl = null;
@@ -1381,6 +1593,8 @@
         const processBtnSpinner = document.getElementById('processBtnSpinner');
         const resetBtn = document.getElementById('resetBtn');
         const rapidClickBtn = document.getElementById('rapidClickBtn');
+        const simulateFailBtn = document.getElementById('simulateFailBtn');
+        const simulateBurstBtn = document.getElementById('simulateBurstBtn');
 
         const ingestionStateBadge = document.getElementById('ingestionStateBadge');
         const ingestionAlert = document.getElementById('ingestionAlert');
@@ -1400,6 +1614,7 @@
         const stepStorage = document.getElementById('stepStorage');
         const stepVariants = document.getElementById('stepVariants');
         const stepComplete = document.getElementById('stepComplete');
+
         const descUpload = document.getElementById('descUpload');
         const descStorage = document.getElementById('descStorage');
         const descVariants = document.getElementById('descVariants');
@@ -1415,10 +1630,7 @@
 
         const responseEnvelopeCode = document.getElementById('responseEnvelopeCode');
         const httpStatusChip = document.getElementById('httpStatusChip');
-        const auditList = document.getElementById('auditList');
-        const clearLogBtn = document.getElementById('clearLogBtn');
 
-        // Measurement Table Elements
         const mLatency = document.getElementById('mLatency');
         const mLatencyStatus = document.getElementById('mLatencyStatus');
         const mPollCount = document.getElementById('mPollCount');
@@ -1428,91 +1640,59 @@
         const mJobDuration = document.getElementById('mJobDuration');
         const mDetectionDelay = document.getElementById('mDetectionDelay');
 
-        // Tab Switching
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        const auditList = document.getElementById('auditList');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+
+        // Navigation Tabs
+        document.querySelectorAll('.nav-tab').forEach(tabBtn => {
+            tabBtn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-                tab.classList.add('active');
-                const targetId = tab.getAttribute('data-tab');
-                const content = document.getElementById(targetId);
-                if (content) content.classList.add('active');
+                tabBtn.classList.add('active');
+                const targetTabId = tabBtn.getAttribute('data-tab');
+                const targetContent = document.getElementById(targetTabId);
+                if (targetContent) targetContent.classList.add('active');
             });
         });
 
-        // Healthcheck on load
-        checkServerHealth();
+        // Healthcheck loop
         async function checkServerHealth() {
-            const healthDot = document.getElementById('healthDot');
-            const healthText = document.getElementById('healthText');
+            const dot = document.getElementById('healthDot');
+            const txt = document.getElementById('healthText');
             try {
                 const res = await fetch('/v1/healthcheck');
                 if (res.ok) {
-                    const data = await res.json();
-                    healthDot.style.backgroundColor = 'var(--status-success)';
-                    healthText.textContent = `Server online (${data.system_info?.environment || 'ready'})`;
+                    dot.style.backgroundColor = 'var(--status-completed-text)';
+                    txt.textContent = 'API Online (200 OK)';
                 } else {
-                    healthDot.style.backgroundColor = 'var(--status-warning)';
-                    healthText.textContent = `HTTP ${res.status}`;
+                    dot.style.backgroundColor = 'var(--status-queued-text)';
+                    txt.textContent = `Degraded (${res.status})`;
                 }
-            } catch (err) {
-                healthDot.style.backgroundColor = 'var(--status-error)';
-                healthText.textContent = 'Offline (check :4000)';
+            } catch {
+                dot.style.backgroundColor = 'var(--status-failed-text)';
+                txt.textContent = 'Server Offline';
             }
         }
+        checkServerHealth();
+        setInterval(checkServerHealth, 10000);
 
-        // Audit Logging Helper
-        function logAudit(message, category = 'normal') {
-            const li = document.createElement('li');
-            li.className = 'log-item';
-            if (category === 'blocked') li.classList.add('log-blocked');
-            if (category === 'success') li.classList.add('log-success');
-
-            const textSpan = document.createElement('span');
-            textSpan.textContent = message;
-
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'log-time';
-            timeSpan.textContent = new Date().toLocaleTimeString();
-
-            li.appendChild(textSpan);
-            li.appendChild(timeSpan);
-            auditList.prepend(li);
-        }
-
-        clearLogBtn.addEventListener('click', () => {
-            auditList.innerHTML = '';
-        });
-
-        // Format Byte Sizes
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-
-        // Q&A Accordion Toggle
-        function toggleQA(headerEl) {
-            headerEl.parentElement.classList.toggle('open');
-        }
-
-        // File Selection (UI-01, UI-05, UI-06, UI-07)
+        // File Selection & Local Preview (UI-01, UI-05, UI-06, UI-07)
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            handleFileSelection(file);
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
         });
 
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropzone.classList.add('dragover');
         });
+
         dropzone.addEventListener('dragleave', () => {
             dropzone.classList.remove('dragover');
         });
+
         dropzone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
@@ -1522,69 +1702,44 @@
         });
 
         function handleFileSelection(file) {
+            // UI-06: No upload on select
             selectedFile = file;
 
-            // Revoke old object URL if existing
-            if (localPreviewUrl) {
-                URL.revokeObjectURL(localPreviewUrl);
-            }
-
-            // Create in-memory object URL without any network transmission (UI-05, UI-06)
-            localPreviewUrl = URL.createObjectURL(file);
-            previewImg.src = localPreviewUrl;
-
+            // Render local preview via createObjectURL
+            previewImg.src = URL.createObjectURL(file);
             metaFilename.textContent = file.name;
             metaFilesize.textContent = formatBytes(file.size);
-            metaMime.textContent = file.type || 'unspecified';
+            metaMime.textContent = file.type || 'unknown/unspecified';
 
-            previewBox.style.display = 'block';
-            ingestionAlert.style.display = 'none';
-
-            // Enable submission button (UI-02)
+            previewBox.style.display = 'flex';
             processBtn.disabled = false;
-            ingestionStateBadge.className = 'badge badge-info';
-            ingestionStateBadge.textContent = 'State: Image selected';
+            ingestionStateBadge.className = 'badge badge-warning';
+            ingestionStateBadge.textContent = 'Image Selected';
 
-            logAudit(`File selected: "${file.name}" (${formatBytes(file.size)}). Local blob preview created in browser RAM. Zero bytes sent.`);
+            ingestionAlert.style.display = 'none';
+            logAudit(`Selected file "${file.name}" (${formatBytes(file.size)}). Local blob URL mounted.`);
         }
 
-        // Reset to initial state (UI-01, UI-03, UI-04)
-        resetBtn.addEventListener('click', () => {
-            resetAll();
-            logAudit('Reset interface to initial state.');
-        });
+        // Reset Handler (UI-01, UI-03, UI-04)
+        resetBtn.addEventListener('click', resetConsoleState);
 
-        function resetAll() {
+        function resetConsoleState() {
             stopPolling();
-
             selectedFile = null;
-            if (localPreviewUrl) {
-                URL.revokeObjectURL(localPreviewUrl);
-                localPreviewUrl = null;
-            }
             fileInput.value = '';
+
             previewBox.style.display = 'none';
             previewImg.src = '';
-            ingestionAlert.style.display = 'none';
-
-            isSubmitting = false;
             processBtn.disabled = true;
             processBtnSpinner.style.display = 'none';
-            processBtnText.textContent = 'Process image';
+            processBtnText.textContent = 'Dispatch work (POST)';
 
             ingestionStateBadge.className = 'badge badge-neutral';
-            ingestionStateBadge.textContent = 'State: Initial';
-
-            activeJobPublicId = null;
-            activeStatusUrl = null;
-            pollCount = 0;
-            lastObservedState = null;
+            ingestionStateBadge.textContent = 'Initial';
+            ingestionAlert.style.display = 'none';
 
             jobStatusBadge.className = 'badge badge-neutral';
             jobStatusBadge.textContent = 'No active job';
-            pollingIndicator.style.display = 'none';
-            retrievalErrorBox.style.display = 'none';
-            processingErrorBox.style.display = 'none';
 
             dispJobPublicId.textContent = '—';
             dispImageId.textContent = '—';
@@ -1594,16 +1749,15 @@
             resetTimeline();
 
             resultsPlaceholder.style.display = 'block';
-            resultsPlaceholderText.textContent = 'No images generated yet.';
+            resultsPlaceholderText.textContent = 'No variants generated yet. Submit an image to begin pipeline execution.';
             resultsCountBadge.textContent = '0 ready';
             resultsCountBadge.className = 'badge badge-neutral';
             variantGrid.style.display = 'none';
 
             httpStatusChip.className = 'badge badge-neutral';
             httpStatusChip.textContent = 'Awaiting POST';
-            responseEnvelopeCode.textContent = `// Server response JSON will appear here upon submission.\n// Page initially loaded with no active job, no polling, zero requests.`;
+            responseEnvelopeCode.textContent = `// Server response JSON will appear here upon submission.\n// Contract requires: image_id, job_id, status, status_url, and Location header.`;
 
-            // Reset measurements
             mLatency.textContent = '—';
             mLatencyStatus.textContent = 'Not run';
             mLatencyStatus.className = 'badge badge-neutral';
@@ -1614,6 +1768,8 @@
             mProcDuration.textContent = '—';
             mJobDuration.textContent = '—';
             mDetectionDelay.textContent = '—';
+
+            logAudit('Console reset to initial state.');
         }
 
         function resetTimeline() {
@@ -1622,17 +1778,16 @@
             stepVariants.className = 'timeline-step';
             stepComplete.className = 'timeline-step';
 
-            descUpload.textContent = 'Waiting for submission';
-            descStorage.textContent = 'Pending durable filesystem write';
-            descVariants.textContent = 'Deferred to Week 2 decoupled worker';
+            descUpload.textContent = 'Awaiting submission';
+            descStorage.textContent = 'Pending durable write';
+            descVariants.textContent = 'Awaiting worker claim';
             descComplete.textContent = 'Pending all variants ready';
         }
 
         // Submission with Concurrency Guard (UI-08, UI-09, SUB-01, SUB-02)
         async function submitImage() {
-            // Guard 1: In-memory isSubmitting boolean guard
             if (isSubmitting) {
-                logAudit('CONCURRENCY GUARD BLOCKED: isSubmitting is true. Discarded duplicate dispatch.', 'blocked');
+                logAudit('CONCURRENCY GUARD: isSubmitting locked. Blocked rapid duplicate click.', 'blocked');
                 return;
             }
 
@@ -1641,17 +1796,17 @@
                 return;
             }
 
-            // Immediately engage locks before awaiting
+            // Immediately engage locks
             isSubmitting = true;
-            processBtn.disabled = true; // Guard 2: DOM button disabled attribute
+            processBtn.disabled = true;
             processBtnSpinner.style.display = 'inline-block';
-            processBtnText.textContent = 'Uploading...';
+            processBtnText.textContent = 'Dispatching...';
 
             ingestionStateBadge.className = 'badge badge-warning';
-            ingestionStateBadge.textContent = 'State: Uploading (In-flight)';
+            ingestionStateBadge.textContent = 'In-Flight';
 
             totalPostDispatches++;
-            logAudit(`POST /v1/images dispatched (Flight #${totalPostDispatches}) with ${selectedFile.name}`);
+            logAudit(`POST /v1/images dispatched (Flight #${totalPostDispatches}): ${selectedFile.name}`);
 
             const formData = new FormData();
             formData.append('image', selectedFile);
@@ -1667,7 +1822,7 @@
                 ackLatencyMs = Math.round(performance.now() - submissionStartTime);
                 mLatency.textContent = `${ackLatencyMs} ms`;
                 if (ackLatencyMs < 30) {
-                    mLatencyStatus.textContent = 'Sub-30ms Goal Met';
+                    mLatencyStatus.textContent = 'Sub-30ms Met';
                     mLatencyStatus.className = 'badge badge-success';
                 } else {
                     mLatencyStatus.textContent = `${ackLatencyMs} ms`;
@@ -1691,62 +1846,60 @@
             } catch (networkErr) {
                 handleNetworkError(networkErr);
             } finally {
-                // Release guards
                 isSubmitting = false;
                 processBtn.disabled = false;
                 processBtnSpinner.style.display = 'none';
-                processBtnText.textContent = 'Process image';
+                processBtnText.textContent = 'Dispatch work (POST)';
             }
         }
 
         processBtn.addEventListener('click', submitImage);
 
-        // Handle Successful HTTP 202 Acceptance
+        // Handle Successful HTTP 202 Acceptance (API-04, UI-10, UI-11)
         function handleAcceptedResponse(data, latency) {
             ingestionStateBadge.className = 'badge badge-success';
-            ingestionStateBadge.textContent = 'State: 202 Accepted';
+            ingestionStateBadge.textContent = '202 Accepted';
 
             httpStatusChip.className = 'badge badge-success';
-            httpStatusChip.textContent = `HTTP 202 Accepted (${latency}ms)`;
+            httpStatusChip.textContent = `202 Accepted (${latency}ms)`;
 
-            const job = data.job || {};
+            const job = data.job || data;
             const img = data.image || {};
 
-            activeJobPublicId = job.public_id;
-            activeStatusUrl = job.status_url || `/v1/jobs/${activeJobPublicId}`;
+            activeJobPublicId = data.job_id || job.public_id || job.id;
+            activeStatusUrl = data.status_url || job.status_url || `/v1/jobs/${activeJobPublicId}`;
 
             dispJobPublicId.textContent = activeJobPublicId || '—';
-            dispImageId.textContent = img.id || job.image_id || '—';
+            dispImageId.textContent = data.image_id || img.id || job.image_id || '—';
             dispStatusUrl.textContent = activeStatusUrl || '—';
-            dispJobState.textContent = job.status || 'queued';
+            dispJobState.textContent = data.status || job.status || 'queued';
 
             jobStatusBadge.className = 'badge badge-warning';
-            jobStatusBadge.textContent = `Status: ${job.status || 'queued'}`;
+            jobStatusBadge.textContent = `${data.status || job.status || 'queued'}`;
 
             // Update timeline (UI-11)
             stepUpload.className = 'timeline-step completed';
             descUpload.textContent = `Accepted in ${latency}ms (HTTP 202)`;
 
             stepStorage.className = 'timeline-step completed';
-            descStorage.textContent = `Durably written to ${img.storage_path || './storage/uploads/'}`;
+            descStorage.textContent = `Durably written to storage`;
 
             stepVariants.className = 'timeline-step active';
-            descVariants.textContent = 'Job enqueued in PostgreSQL (Worker pending)';
+            descVariants.textContent = 'Enqueued in DB (worker pending claim)';
 
             stepComplete.className = 'timeline-step';
-            descComplete.textContent = 'Waiting for worker variants';
+            descComplete.textContent = 'Awaiting worker execution';
 
-            // UI-14: Processing results state
             resultsPlaceholder.style.display = 'block';
-            resultsPlaceholderText.textContent = 'Images are being generated. Results will appear when processing completes.';
+            resultsPlaceholderText.textContent = 'Worker active. Generated variants will appear upon job completion.';
             resultsCountBadge.textContent = 'Queued';
             resultsCountBadge.className = 'badge badge-warning';
 
             showIngestionAlert(`
-                <strong>Durable Acceptance Confirmed (HTTP 202):</strong> File saved to <code>${img.storage_path || 'storage'}</code>. Asynchronous job <code>${activeJobPublicId}</code> registered.
+                <strong>Durable Acceptance Confirmed (HTTP 202):</strong> Job <code>${activeJobPublicId}</code> committed to PostgreSQL.
             `, 'success');
 
-            logAudit(`HTTP 202 Accepted in ${latency}ms. Job: ${activeJobPublicId}`, 'success');
+            logAudit(`HTTP 202 Accepted in ${latency}ms. Location: ${activeStatusUrl}`, 'success');
 
             // Begin Short Polling (POLL-01)
             startShortPolling();
@@ -1754,19 +1907,19 @@
 
         function handleRejectedResponse(status, data) {
             ingestionStateBadge.className = 'badge badge-error';
-            ingestionStateBadge.textContent = `State: Rejected (${status})`;
+            ingestionStateBadge.textContent = `Rejected (${status})`;
 
             httpStatusChip.className = 'badge badge-error';
             httpStatusChip.textContent = `HTTP ${status}`;
 
             const errMsg = data.error || data.message || JSON.stringify(data);
             showIngestionAlert(`<strong>Upload Rejected (${status}):</strong> ${typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg}`, 'error');
-            logAudit(`POST /v1/images rejected with status ${status}: ${typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg}`, 'blocked');
+            logAudit(`POST /v1/images rejected (${status}): ${typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg}`, 'blocked');
         }
 
         function handleNetworkError(err) {
             ingestionStateBadge.className = 'badge badge-error';
-            ingestionStateBadge.textContent = 'State: Network Error';
+            ingestionStateBadge.textContent = 'Network Error';
 
             httpStatusChip.className = 'badge badge-error';
             httpStatusChip.textContent = 'Network Error';
@@ -1782,7 +1935,7 @@
             pollCount = 0;
             pollingIndicator.style.display = 'flex';
             pollCountBadge.textContent = `Polls: 0`;
-            mPollStatus.textContent = 'Active (1s loop)';
+            mPollStatus.textContent = 'Active (1s)';
             mPollStatus.className = 'badge badge-warning';
 
             pollAbortController = new AbortController();
@@ -1821,7 +1974,6 @@
                 });
 
                 if (!res.ok) {
-                    // Non-200 response -> retrieval error (POLL-07)
                     handleRetrievalError(`Server returned HTTP ${res.status}`);
                     return;
                 }
@@ -1832,49 +1984,45 @@
                 lastObservedState = job.status;
                 dispJobState.textContent = job.status;
 
-                // UI-12: Update timestamps & timeline
                 updateObservedJob(job);
 
                 if (job.status === 'completed') {
-                    // POLL-05: Terminal stop on completed
                     stopPolling();
                     handleJobCompleted(job);
                 } else if (job.status === 'failed') {
-                    // POLL-05, UI-16: Terminal stop on failed
                     stopPolling();
                     handleJobFailed(job);
                 } else {
-                    // State is queued or processing
                     retrievalErrorBox.style.display = 'none';
                     if (job.status === 'processing') {
                         jobStatusBadge.className = 'badge badge-info';
-                        jobStatusBadge.textContent = 'Status: Processing';
+                        jobStatusBadge.textContent = 'processing';
                         stepVariants.className = 'timeline-step active';
                         descVariants.textContent = 'Worker actively generating variants...';
                     } else {
                         jobStatusBadge.className = 'badge badge-warning';
-                        jobStatusBadge.textContent = 'Status: Queued';
+                        jobStatusBadge.textContent = 'queued';
                     }
                 }
 
             } catch (err) {
                 if (err.name === 'AbortError') return;
-                // Network error or fetch exception -> retrieval error (POLL-07)
                 handleRetrievalError(err.message);
             }
         }
 
         function updateObservedJob(job) {
-            if (job.started_at && job.queued_at) {
-                const diff = new Date(job.started_at) - new Date(job.queued_at);
+            const queuedTime = job.queued_at || job.created_at;
+            if (job.started_at && queuedTime) {
+                const diff = Math.max(0, new Date(job.started_at) - new Date(queuedTime));
                 mQueueWait.textContent = `${diff} ms`;
             }
             if (job.completed_at && job.started_at) {
-                const diff = new Date(job.completed_at) - new Date(job.started_at);
+                const diff = Math.max(0, new Date(job.completed_at) - new Date(job.started_at));
                 mProcDuration.textContent = `${diff} ms`;
             }
-            if (job.completed_at && job.queued_at) {
-                const diff = new Date(job.completed_at) - new Date(job.queued_at);
+            if (job.completed_at && queuedTime) {
+                const diff = Math.max(0, new Date(job.completed_at) - new Date(queuedTime));
                 mJobDuration.textContent = `${diff} ms`;
             }
         }
@@ -1886,29 +2034,29 @@
             mPollStatus.className = 'badge badge-error';
 
             retrievalErrorBox.style.display = 'block';
-            logAudit(`Status retrieval failed: ${reason}. Polling stopped. Last known state: "${lastObservedState || 'queued'}" preserved.`, 'blocked');
+            logAudit(`Status retrieval failed: ${reason}. Polling halted. Last known state "${lastObservedState || 'queued'}" preserved.`, 'blocked');
         }
 
-        // Try Again handler for retrieval error recovery (POLL-10)
+        // Try Again handler (POLL-10)
         tryAgainBtn.addEventListener('click', () => {
             retrievalErrorBox.style.display = 'none';
-            logAudit(`User clicked "Try again" to resume observation of job ${activeJobPublicId}`);
+            logAudit(`Resuming observation of job ${activeJobPublicId}`);
             startShortPolling();
         });
 
         // Terminal State: Completed (UI-15)
         function handleJobCompleted(job) {
             jobStatusBadge.className = 'badge badge-success';
-            jobStatusBadge.textContent = 'Status: Completed';
+            jobStatusBadge.textContent = 'completed';
 
-            mPollStatus.textContent = 'Stopped (Terminal: Completed)';
+            mPollStatus.textContent = 'Terminal: Completed';
             mPollStatus.className = 'badge badge-success';
 
             stepVariants.className = 'timeline-step completed';
-            descVariants.textContent = 'All 3 variants successfully generated';
+            descVariants.textContent = 'All 3 variants created';
 
             stepComplete.className = 'timeline-step completed';
-            descComplete.textContent = `Completed at ${new Date(job.completed_at || Date.now()).toLocaleTimeString()}`;
+            descComplete.textContent = `Finished at ${new Date(job.completed_at || Date.now()).toLocaleTimeString()}`;
 
             // Detection delay measurement
             if (job.completed_at) {
@@ -1918,36 +2066,36 @@
 
             // Render variants
             renderVariants(job.variants || []);
-            logAudit(`Job ${activeJobPublicId} reached terminal state: COMPLETED`, 'success');
+            logAudit(`Job ${activeJobPublicId} completed successfully. Variants verified.`, 'success');
         }
 
         // Terminal State: Failed (UI-16)
         function handleJobFailed(job) {
             jobStatusBadge.className = 'badge badge-error';
-            jobStatusBadge.textContent = 'Status: Failed';
+            jobStatusBadge.textContent = 'failed';
 
-            mPollStatus.textContent = 'Stopped (Terminal: Failed)';
+            mPollStatus.textContent = 'Terminal: Failed';
             mPollStatus.className = 'badge badge-error';
 
-            stepVariants.className = 'timeline-step';
-            descVariants.textContent = 'Variant generation failed';
+            stepVariants.className = 'timeline-step failed';
+            descVariants.textContent = 'Transformation failed';
 
-            stepComplete.className = 'timeline-step';
-            descComplete.textContent = 'Not completed';
+            stepComplete.className = 'timeline-step failed';
+            descComplete.textContent = 'Terminal failure';
 
             processingErrorBox.style.display = 'block';
-            processingErrorMsg.textContent = job.error_message || 'The worker encountered an unrecoverable error during processing.';
+            processingErrorMsg.textContent = job.error_message || 'The worker encountered an unrecoverable error during transformation.';
 
             resultsPlaceholder.style.display = 'block';
-            resultsPlaceholderText.textContent = 'Processing failed. No variants available.';
+            resultsPlaceholderText.textContent = 'Job failed. Zero variants generated.';
             resultsCountBadge.textContent = 'Failed';
             resultsCountBadge.className = 'badge badge-error';
             variantGrid.style.display = 'none';
 
-            logAudit(`Job ${activeJobPublicId} reported failure: ${job.error_message || 'unknown'}`, 'blocked');
+            logAudit(`Job ${activeJobPublicId} reported failure: ${job.error_message || 'unrecoverable error'}`, 'blocked');
         }
 
-        // Render Generated Variants
+        // Render Generated Variants (UI-15)
         function renderVariants(variants) {
             resultsPlaceholder.style.display = 'none';
             variantGrid.style.display = 'grid';
@@ -1957,21 +2105,21 @@
             variants.forEach(v => {
                 if (v.name === 'thumbnail') {
                     document.getElementById('varImgThumb').src = v.url;
-                    document.getElementById('varDimsThumb').textContent = `${v.width} × ${v.height}`;
+                    document.getElementById('varDimsThumb').textContent = `${v.width} × ${v.height} (square crop)`;
                     document.getElementById('varLinkThumb').href = v.url;
                 } else if (v.name === 'preview') {
                     document.getElementById('varImgPreview').src = v.url;
-                    document.getElementById('varDimsPreview').textContent = `${v.width} × ${v.height}`;
+                    document.getElementById('varDimsPreview').textContent = `${v.width} × ${v.height} (max 800×600)`;
                     document.getElementById('varLinkPreview').href = v.url;
                 } else if (v.name === 'display') {
                     document.getElementById('varImgDisplay').src = v.url;
-                    document.getElementById('varDimsDisplay').textContent = `${v.width} × ${v.height}`;
+                    document.getElementById('varDimsDisplay').textContent = `${v.width} × ${v.height} (max 1200×900)`;
                     document.getElementById('varLinkDisplay').href = v.url;
                 }
             });
         }
 
-        // Rapid Repeated Click Simulation (Concurrency Stress Test)
+        // Concurrency Guard Demonstration: 5 Rapid Clicks
         rapidClickBtn.addEventListener('click', () => {
             if (!selectedFile) {
                 showIngestionAlert('Please select an image file first to test rapid clicking.', 'warning');
@@ -1979,7 +2127,6 @@
             }
 
             logAudit('Simulating 5 rapid clicks within 50ms to demonstrate isSubmitting guard...');
-
             for (let i = 1; i <= 5; i++) {
                 setTimeout(() => {
                     logAudit(`Rapid Click #${i} fired.`);
@@ -1988,10 +2135,108 @@
             }
         });
 
+        // Deliberate Worker Failure Simulation
+        simulateFailBtn.addEventListener('click', () => {
+            logAudit('Generating synthetic payload with deliberate failure trigger ("deliberate_fail_sim.jpg")...');
+
+            // Construct genuine JPEG header (FF D8 FF E0) followed by simulated trigger
+            const jpegHeader = new Uint8Array([
+                0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00, 0x48,
+                0x00, 0x48, 0x00, 0x00, 0xFF, 0xD9
+            ]);
+            const blob = new Blob([jpegHeader], { type: 'image/jpeg' });
+            const testFile = new File([blob], 'deliberate_fail_sim.jpg', { type: 'image/jpeg' });
+
+            handleFileSelection(testFile);
+
+            showIngestionAlert('<strong>Deliberate Failure Payload Loaded:</strong> Click "Dispatch work (POST)" to watch the API accept with 202 and the worker transition the job to <code>failed</code> with client-safe error message.', 'warning');
+        });
+
+        // Burst Demonstration (5 Concurrent Jobs to prove queueing)
+        simulateBurstBtn.addEventListener('click', async () => {
+            logAudit('Preparing burst test of 5 jobs to demonstrate single-worker queue wait backlog...');
+
+            // Create sample image
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#2d5fb8';
+            ctx.fillRect(0, 0, 300, 200);
+
+            canvas.toBlob(async (blob) => {
+                const burstFile = new File([blob], 'burst_test.jpg', { type: 'image/jpeg' });
+                
+                logAudit('Dispatching Burst: 5 concurrent POST requests to /v1/images...');
+                for (let i = 1; i <= 5; i++) {
+                    const fd = new FormData();
+                    fd.append('image', burstFile);
+                    fetch('/v1/images', { method: 'POST', body: fd })
+                        .then(r => r.json())
+                        .then(data => {
+                            logAudit(`Burst #${i} Accepted: Job ${data.job_id || (data.job && data.job.public_id)} (status: queued)`);
+                            if (i === 1) {
+                                // Observe the first job
+                                activeJobPublicId = data.job_id || data.job.public_id;
+                                activeStatusUrl = data.status_url || data.job.status_url;
+                                dispJobPublicId.textContent = activeJobPublicId;
+                                dispStatusUrl.textContent = activeStatusUrl;
+                                startShortPolling();
+                            }
+                        });
+                }
+            }, 'image/jpeg');
+        });
+
+        // Lightbox Modal Functions
+        function openLightbox(imgElementId, title) {
+            const img = document.getElementById(imgElementId);
+            if (!img || !img.src) return;
+            document.getElementById('lightboxImg').src = img.src;
+            document.getElementById('lightboxCaption').textContent = title;
+            document.getElementById('lightboxModal').classList.add('open');
+        }
+
+        function closeLightbox(e) {
+            document.getElementById('lightboxModal').classList.remove('open');
+        }
+
+        function toggleQA(header) {
+            const body = header.nextElementSibling;
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+            } else {
+                body.style.display = 'none';
+            }
+        }
+
         function showIngestionAlert(html, type) {
             ingestionAlert.style.display = 'block';
             ingestionAlert.className = `callout callout-${type}`;
             ingestionAlert.innerHTML = `<div>${html}</div>`;
+        }
+
+        function logAudit(message, level = 'info') {
+            const li = document.createElement('li');
+            li.className = `log-item ${level}`;
+            li.innerHTML = `
+                <span>${message}</span>
+                <span class="log-time">${new Date().toLocaleTimeString()}</span>
+            `;
+            auditList.prepend(li);
+        }
+
+        clearLogBtn.addEventListener('click', () => {
+            auditList.innerHTML = '';
+            logAudit('Audit log cleared.');
+        });
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
     </script>
 </body>

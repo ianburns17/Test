@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"image-api/internal/data"
+	"github.com/julienschmidt/httprouter"
 )
 
 // uploadImageHandler implements the Week 1 Acceptance Boundary.
@@ -191,8 +193,11 @@ func (a *applicationDependencies) uploadImageHandler(w http.ResponseWriter, r *h
 	)
 
 	err = a.writeJSON(w, http.StatusAccepted, envelope{
-		"status":  "accepted",
-		"message": "Image accepted and queued for background processing",
+		"status":     job.Status,
+		"image_id":   img.ID,
+		"job_id":     job.PublicID,
+		"status_url": statusURL,
+		"message":    "Image accepted and queued for background processing",
 		"job": envelope{
 			"id":         job.ID,
 			"public_id":  job.PublicID,
@@ -213,7 +218,7 @@ func (a *applicationDependencies) uploadImageHandler(w http.ResponseWriter, r *h
 		a.serverErrorResponse(w, r, err)
 	}
 
-	// Week 1 Gate: Execution intentionally ends here. Transformations happen in Week 2 via background worker.
+	// Week 1 & 2 Gate: The request handler must not generate variants. Background worker performs transformation.
 }
 
 func (a *applicationDependencies) getImageHandler(w http.ResponseWriter, r *http.Request) {
@@ -246,4 +251,59 @@ func (a *applicationDependencies) getImageHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		a.serverErrorResponse(w, r, err)
 	}
+}
+
+// getVariantHandler serves a generated image variant by image ID and variant name (Section 10).
+func (a *applicationDependencies) getVariantHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := a.readUUIDParam(r, "id")
+	if err != nil {
+		a.badRequestResponse(w, r, err)
+		return
+	}
+
+	params := httprouter.ParamsFromContext(r.Context())
+	variantName := strings.ToLower(params.ByName("name"))
+
+	// Section 13: Serve only known image variants
+	switch variantName {
+	case "thumbnail", "preview", "display":
+		// Allowed variant profile
+	default:
+		a.notFoundResponse(w, r)
+		return
+	}
+
+	if a.models.Variants.DB == nil {
+		a.notFoundResponse(w, r)
+		return
+	}
+
+	variants, err := a.models.Variants.GetForImage(id)
+	if err != nil {
+		a.serverErrorResponse(w, r, err)
+		return
+	}
+
+	var matched *data.ImageVariant
+	for _, v := range variants {
+		if strings.EqualFold(v.VariantName, variantName) {
+			matched = v
+			break
+		}
+	}
+
+	if matched == nil {
+		a.notFoundResponse(w, r)
+		return
+	}
+
+	diskPath := filepath.FromSlash(matched.StoragePath)
+	if _, err := os.Stat(diskPath); os.IsNotExist(err) {
+		a.notFoundResponse(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", matched.MimeType)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeFile(w, r, diskPath)
 }

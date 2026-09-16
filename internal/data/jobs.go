@@ -215,7 +215,7 @@ func (m JobModel) ClaimNextJob(jobType string) (*Job, error) {
 func (m JobModel) Update(j *Job) error {
 	query := `
 		UPDATE jobs
-		SET status = $1, result = $2, error_message = $3, started_at = $4, completed_at = $5
+		SET status = $1, result = $2, error_message = $3, started_at = COALESCE($4, started_at), completed_at = $5
 		WHERE id = $6
 		RETURNING updated_at
 	`

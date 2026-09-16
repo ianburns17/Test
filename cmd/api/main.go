@@ -23,6 +23,7 @@ type serverConfig struct {
 	port        int
 	environment string
 	storageDir  string
+	variantsDir string
 	db          struct {
 		dsn          string
 		maxOpenConns int
@@ -49,6 +50,7 @@ func main() {
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.environment, "env", "development", "Environment (development|staging|production)")
 	flag.StringVar(&cfg.storageDir, "storage-dir", "./storage/uploads", "Directory to store accepted original images")
+	flag.StringVar(&cfg.variantsDir, "variants-dir", "./storage/variants", "Directory to store generated image variants")
 
 	// Read DSN from environment variable first, fallback to flag default
 	defaultDSN := os.Getenv("IMAGE_DB_DSN")
@@ -72,9 +74,13 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	// Ensure local storage directory exists
+	// Ensure local storage directories exist
 	if err := os.MkdirAll(cfg.storageDir, 0755); err != nil {
 		logger.Error("failed to create image storage directory", "error", err, "dir", cfg.storageDir)
+		os.Exit(1)
+	}
+	if err := os.MkdirAll(cfg.variantsDir, 0755); err != nil {
+		logger.Error("failed to create variants storage directory", "error", err, "dir", cfg.variantsDir)
 		os.Exit(1)
 	}
 
@@ -96,6 +102,11 @@ func main() {
 		models: models,
 	}
 
+	// Start exactly one background worker goroutine inside the application process (WRK-01)
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
+	app.startWorker(workerCtx)
+
 	apiServer := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      app.routes(),
@@ -108,13 +119,17 @@ func main() {
 	// Graceful shutdown coordination:
 	// 1. Listen for SIGINT / SIGTERM signals.
 	// 2. Stop HTTP server from accepting new connections via apiServer.Shutdown().
-	// 3. Wait for running background tasks via app.wg.Wait().
+	// 3. Stop the background worker via workerCancel().
+	// 4. Wait for running background tasks via app.wg.Wait().
 	shutdownError := make(chan error)
 	go func() {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		s := <-quit
 		logger.Info("shutting down server", "signal", s.String())
+
+		// Stop worker from picking up new jobs
+		workerCancel()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -135,6 +150,7 @@ func main() {
 		"address", apiServer.Addr,
 		"environment", cfg.environment,
 		"storage_dir", cfg.storageDir,
+		"variants_dir", cfg.variantsDir,
 	)
 
 	err = apiServer.ListenAndServe()
