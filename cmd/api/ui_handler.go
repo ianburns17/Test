@@ -6,7 +6,7 @@ import (
 )
 
 func (a *applicationDependencies) uiConsoleHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/" && r.URL.Path != "/lab" && r.URL.Path != "/customer" {
 		a.notFoundResponse(w, r)
 		return
 	}

@@ -15,6 +15,8 @@ func (a *applicationDependencies) routes() http.Handler {
 
 	// Web UI & Observability
 	router.HandlerFunc(http.MethodGet, "/", a.uiConsoleHandler)
+	router.HandlerFunc(http.MethodGet, "/lab", a.uiConsoleHandler)
+	router.HandlerFunc(http.MethodGet, "/customer", a.uiConsoleHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", a.healthcheckHandler)
 
 	// Image Acceptance & Retrieval Endpoints
