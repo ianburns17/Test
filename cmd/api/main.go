@@ -22,9 +22,10 @@ import (
 type serverConfig struct {
 	port        int
 	environment string
-	storageDir  string
-	variantsDir string
-	db          struct {
+	storageDir      string
+	variantsDir     string
+	processingDelay time.Duration
+	db              struct {
 		dsn          string
 		maxOpenConns int
 		maxIdleConns int
@@ -42,6 +43,7 @@ type applicationDependencies struct {
 	logger *slog.Logger
 	models data.Models
 	wg     sync.WaitGroup
+	dbMu   sync.Mutex
 }
 
 func main() {
@@ -62,9 +64,13 @@ func main() {
 	}
 
 	flag.StringVar(&cfg.db.dsn, "db-dsn", defaultDSN, "PostgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "database", defaultDSN, "PostgreSQL DSN (alias for -db-dsn)")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
 	flag.DurationVar(&cfg.db.maxIdleTime, "db-max-idle-time", 15*time.Minute, "PostgreSQL max connection idle time")
+
+	flag.DurationVar(&cfg.processingDelay, "processing-delay", 0, "Simulated delay for background worker job processing (e.g. 15s)")
+	flag.DurationVar(&cfg.processingDelay, "delay", 0, "Simulated delay for background worker job processing (alias for -processing-delay)")
 
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 50, "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 100, "Rate limiter maximum burst")
@@ -151,6 +157,7 @@ func main() {
 		"environment", cfg.environment,
 		"storage_dir", cfg.storageDir,
 		"variants_dir", cfg.variantsDir,
+		"processing_delay", cfg.processingDelay.String(),
 	)
 
 	err = apiServer.ListenAndServe()
@@ -198,4 +205,23 @@ func openDB(cfg serverConfig) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+// tryConnectDB dynamically attempts to connect or reconnect to PostgreSQL if not currently connected.
+func (a *applicationDependencies) tryConnectDB() bool {
+	a.dbMu.Lock()
+	defer a.dbMu.Unlock()
+
+	if a.models.Jobs.DB != nil {
+		return true
+	}
+
+	db, err := openDB(a.config)
+	if err != nil {
+		return false
+	}
+
+	a.models = data.NewModels(db)
+	a.logger.Info("database connection pool dynamically established", "dsn", a.config.db.dsn)
+	return true
 }

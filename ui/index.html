@@ -113,7 +113,7 @@
 
         /* ==========================================================================
            TOP APPLICATION NAVIGATION BAR
-           Warm white header with soft light blue accents & segmented switch
+           Warm white header with soft light blue accents
            ========================================================================== */
         .app-header {
             background-color: var(--bg-navbar);
@@ -156,45 +156,6 @@
             border-radius: var(--radius-sm);
             text-transform: uppercase;
             letter-spacing: 0.04em;
-        }
-
-        /* Segmented View Mode Switcher */
-        .view-switcher {
-            display: flex;
-            align-items: center;
-            background-color: var(--bg-surface-sunken);
-            border: 1px solid var(--border-default);
-            padding: 3px;
-            border-radius: var(--radius-md);
-            gap: 3px;
-        }
-
-        .view-btn {
-            background: transparent;
-            border: none;
-            padding: 0.45rem 1rem;
-            font-family: var(--font-sans);
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            transition: all 0.15s ease;
-        }
-
-        .view-btn:hover {
-            color: var(--text-heading);
-            background-color: rgba(255, 255, 255, 0.6);
-        }
-
-        .view-btn.active {
-            background-color: #ffffff;
-            color: var(--accent-brand);
-            box-shadow: 0 1px 3px rgba(30, 41, 59, 0.08);
-            border: 1px solid var(--border-subtle);
         }
 
         .header-actions {
@@ -250,12 +211,7 @@
             margin: 0 auto;
         }
 
-        /* View Switching */
         .view-container {
-            display: none;
-        }
-
-        .view-container.active {
             display: block;
         }
 
@@ -808,302 +764,6 @@
             border-top: 1px solid var(--border-subtle);
         }
 
-        /* ==========================================================================
-           ENGINEERING LAB WORKBENCH
-           Precision technical console with warm cream background & soft light blue
-           ========================================================================== */
-        .lab-layout {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            gap: 1.75rem;
-        }
-
-        @media (max-width: 1120px) {
-            .lab-layout {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .lab-panel {
-            background-color: #ffffff;
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-lg);
-            padding: 1.35rem;
-            box-shadow: var(--shadow-card);
-            margin-bottom: 1.35rem;
-        }
-
-        .lab-panel-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        /* Stepper Stages */
-        .timeline-stepper {
-            display: flex;
-            flex-direction: column;
-            gap: 0.85rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .timeline-node {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.85rem;
-            position: relative;
-        }
-
-        .timeline-node::before {
-            content: '';
-            position: absolute;
-            left: 12px;
-            top: 26px;
-            bottom: -12px;
-            width: 2px;
-            background-color: var(--border-default);
-        }
-
-        .timeline-node:last-child::before {
-            display: none;
-        }
-
-        .timeline-indicator {
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            background-color: var(--bg-surface-sunken);
-            border: 2px solid var(--border-strong);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.68rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            flex-shrink: 0;
-            z-index: 1;
-        }
-
-        .timeline-node.completed .timeline-indicator {
-            background-color: #d1fae5;
-            border-color: #10b981;
-            color: #065f46;
-        }
-
-        .timeline-node.active .timeline-indicator {
-            background-color: #e0f2fe;
-            border-color: #0284c7;
-            color: #0369a1;
-            animation: pulse-ring 1.5s infinite;
-        }
-
-        .timeline-node.failed .timeline-indicator {
-            background-color: #fee2e2;
-            border-color: #ef4444;
-            color: #991b1b;
-        }
-
-        .timeline-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .timeline-step-title {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: var(--text-heading);
-        }
-
-        .timeline-step-desc {
-            font-size: 0.76rem;
-            color: var(--text-secondary);
-            margin-top: 0.15rem;
-        }
-
-        /* Metrics Grid */
-        .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.85rem;
-            margin-bottom: 1.25rem;
-        }
-
-        @media (max-width: 640px) {
-            .metric-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .metric-card {
-            background-color: var(--bg-surface-sunken);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-md);
-            padding: 0.95rem;
-        }
-
-        .metric-card-label {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 0.35rem;
-        }
-
-        .metric-card-val {
-            font-family: var(--font-mono);
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--text-blue);
-            margin-bottom: 0.2rem;
-        }
-
-        .metric-card-footnote {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        }
-
-        /* State Table Inspector */
-        .inspector-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: var(--font-mono);
-            font-size: 0.78rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .inspector-table tr {
-            border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .inspector-table td {
-            padding: 0.6rem 0.35rem;
-        }
-
-        .inspector-key {
-            color: var(--text-muted);
-            width: 32%;
-            font-weight: 500;
-        }
-
-        .inspector-val {
-            color: var(--text-heading);
-            word-break: break-all;
-            font-weight: 600;
-        }
-
-        /* Simulation Controls */
-        .sim-actions-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.65rem;
-            margin-bottom: 1rem;
-        }
-
-        /* Live Event Audit Log */
-        .audit-log-container {
-            background-color: #ffffff;
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-md);
-            height: 220px;
-            overflow-y: auto;
-            padding: 0.85rem;
-            font-family: var(--font-mono);
-            font-size: 0.74rem;
-            line-height: 1.6;
-        }
-
-        .audit-item {
-            display: flex;
-            align-items: baseline;
-            gap: 0.55rem;
-            margin-bottom: 0.35rem;
-            word-break: break-all;
-        }
-
-        .audit-time {
-            color: var(--text-muted);
-            flex-shrink: 0;
-        }
-
-        .audit-tag {
-            padding: 0.08rem 0.35rem;
-            border-radius: 3px;
-            font-weight: 700;
-            font-size: 0.66rem;
-            text-transform: uppercase;
-            flex-shrink: 0;
-        }
-
-        .audit-tag-dispatch { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-        .audit-tag-poll { background: var(--bg-surface-sunken); color: var(--text-secondary); border: 1px solid var(--border-default); }
-        .audit-tag-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-        .audit-tag-blocked { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-        .audit-tag-error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-
-        /* JSON Code Envelope */
-        .code-envelope {
-            background-color: var(--bg-surface-sunken);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-md);
-            padding: 0.85rem;
-            font-family: var(--font-mono);
-            font-size: 0.74rem;
-            color: var(--text-primary);
-            max-height: 180px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-
-        /* Architectural Defense Accordion */
-        .defense-card {
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-md);
-            margin-bottom: 0.65rem;
-            background-color: #ffffff;
-            overflow: hidden;
-        }
-
-        .defense-header {
-            padding: 0.8rem 1rem;
-            font-size: 0.84rem;
-            font-weight: 700;
-            color: var(--text-heading);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            user-select: none;
-            background-color: #ffffff;
-            transition: background-color 0.15s;
-        }
-
-        .defense-header:hover {
-            background-color: var(--bg-blue-tint);
-            color: var(--accent-brand);
-        }
-
-        .defense-body {
-            padding: 0.85rem 1rem;
-            font-size: 0.82rem;
-            color: var(--text-secondary);
-            line-height: 1.55;
-            display: none;
-            border-top: 1px solid var(--border-subtle);
-            background-color: var(--bg-surface-sunken);
-        }
-
-        .defense-body strong {
-            color: var(--text-heading);
-        }
-
         /* Lightbox Modal */
         .modal-overlay {
             position: fixed;
@@ -1197,7 +857,7 @@
 <body>
 
     <!-- ======================================================================
-         TOP APPLICATION BAR: DUAL-VIEW CONTROLLER & ENGINE HEALTH
+         TOP APPLICATION BAR
          ====================================================================== -->
     <header class="app-header">
         <div class="header-brand">
@@ -1206,16 +866,6 @@
                 <span class="brand-pill">v1.3 · Short Polling</span>
             </span>
         </div>
-
-        <!-- Mode Segmented Switcher (Customer Studio vs Lab Workbench) -->
-        <nav class="view-switcher" role="tablist" aria-label="Interface Mode">
-            <button id="navBtnCustomer" class="view-btn active" role="tab" aria-selected="true" aria-controls="viewCustomer">
-                <span>✦</span> Customer Studio
-            </button>
-            <button id="navBtnLab" class="view-btn" role="tab" aria-selected="false" aria-controls="viewLab">
-                <span>⚙</span> Lab Workbench
-            </button>
-        </nav>
 
         <div class="header-actions">
             <div class="server-pill" title="API Gateway: Go HTTP Server on :4000">
@@ -1232,10 +882,10 @@
     <main class="app-main">
 
         <!-- ==================================================================
-             VIEW 1: CUSTOMER CREATIVE STUDIO
+             CUSTOMER CREATIVE STUDIO
              Purpose: Real product interface for clients, photographers, and teams
              ================================================================== -->
-        <section id="viewCustomer" class="view-container active" role="tabpanel" aria-labelledby="navBtnCustomer">
+        <section id="viewCustomer" class="view-container">
             <div class="studio-hero">
                 <h1 class="studio-headline">Automated Asset Generation</h1>
                 <p class="studio-subtext">
@@ -1426,293 +1076,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- ==================================================================
-             VIEW 2: ENGINEERING LAB WORKBENCH
-             Purpose: Deep observability, short polling verification, fault injection
-             ================================================================== -->
-        <section id="viewLab" class="view-container" role="tabpanel" aria-labelledby="navBtnLab">
-            
-            <!-- Top Alert / Ingestion Callout -->
-            <div id="labAlertBox" style="display: none;"></div>
-
-            <!-- Status Retrieval Error Callout (POLL-07 - POLL-10) -->
-            <div id="labRetrievalErrorBox" class="callout callout-warning" style="display: none;">
-                <div>
-                    <div class="callout-title">Unable to check status (POLL-09)</div>
-                    <div>Observation interrupted. The job may still be running. Last observed state is preserved. Polling has halted.</div>
-                    <div style="margin-top: 0.5rem;">
-                        <button id="labTryAgainBtn" class="btn btn-warning btn-sm">
-                            Try Again (Resume Observation of Same Job)
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Terminal Worker Failure Callout (UI-16, WRK-03) -->
-            <div id="labProcessingErrorBox" class="callout callout-error" style="display: none;">
-                <div>
-                    <div class="callout-title">Processing Failed (Terminal State)</div>
-                    <div id="labProcessingErrorMsg">Worker encountered an unrecoverable transformation error.</div>
-                </div>
-            </div>
-
-            <div class="lab-layout">
-                <!-- Left Column: Controls, Simulation Triggers & Ingestion -->
-                <div>
-                    <!-- Ingestion Control Panel -->
-                    <div class="lab-panel">
-                        <div class="lab-panel-title">
-                            <span>Ingestion Control</span>
-                            <span id="labIngestBadge" class="badge badge-idle">Initial</span>
-                        </div>
-
-                        <!-- Dropzone / File Select -->
-                        <div id="labDropzone" class="dropzone-container" style="padding: 1.25rem 1rem;">
-                            <input type="file" id="labFileInput" class="dropzone-file-input" accept="image/jpeg,image/png">
-                            <div class="dropzone-text-primary" style="font-size: 0.85rem;">Select File for Submission</div>
-                            <div class="dropzone-text-secondary" style="font-size: 0.74rem;">JPEG or PNG (10MB Limit)</div>
-                        </div>
-
-                        <div id="labPreviewBox" class="asset-preview-box" style="margin-top: 0.75rem;">
-                            <div class="asset-preview-row">
-                                <div class="asset-thumb-wrapper" style="width: 52px; height: 52px;">
-                                    <img id="labPreviewImg" alt="Preview">
-                                </div>
-                                <div class="asset-meta">
-                                    <div id="labMetaName" class="asset-name" style="font-size: 0.8rem;">file.jpg</div>
-                                    <div class="asset-spec-list" style="font-size: 0.7rem;">
-                                        <span id="labMetaSize">0 KB</span>
-                                        <span id="labMetaMime">image/jpeg</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                            <button id="labProcessBtn" class="btn btn-primary" style="flex: 1;" disabled>
-                                <span id="labBtnSpinner" class="spinner" style="display: none;"></span>
-                                <span id="labBtnText">Dispatch work (POST)</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Fault Simulation & Verification Triggers -->
-                    <div class="lab-panel">
-                        <div class="lab-panel-title">
-                            <span>Lab Demonstration Controls</span>
-                            <span class="badge badge-idle">Triggers</span>
-                        </div>
-
-                        <div class="sim-actions-grid">
-                            <button id="btnSimRetrievalError" class="btn btn-warning btn-sm" title="Demonstrates POLL-07: Injects a network error into the next status poll to verify Try Again">
-                                Sim Status Error
-                            </button>
-                            <button id="btnTestRapidClicks" class="btn btn-secondary btn-sm" title="Demonstrates SUB-01/02: 5 rapid clicks within 50ms locked by isSubmitting">
-                                Test Concurrency
-                            </button>
-                            <button id="btnSimWorkerFail" class="btn btn-danger btn-sm" title="Demonstrates WRK-03: Corrupt payload accepted with 202, fails worker decode">
-                                Deliberate Failure
-                            </button>
-                            <button id="btnSimBurst" class="btn btn-secondary btn-sm" title="Demonstrates Section 15: 5 concurrent POST dispatches to verify queue backlog">
-                                Burst (5 Jobs)
-                            </button>
-                        </div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.45;">
-                            Use these triggers during check-in demonstration to prove short-polling error policy, concurrency guards, and queue backlog.
-                        </div>
-                    </div>
-
-                    <!-- Architectural Defense Q&A -->
-                    <div class="lab-panel">
-                        <div class="lab-panel-title">
-                            <span>Architectural Defense Q&A</span>
-                            <span class="badge badge-idle">Oral Defense</span>
-                        </div>
-
-                        <div class="defense-card">
-                            <div class="defense-header" onclick="toggleDefense(this)">
-                                <span>1. Short vs Long Polling?</span>
-                                <span>+</span>
-                            </div>
-                            <div class="defense-body">
-                                <strong>Short polling</strong> sends ordinary, non-blocking GET requests at regular intervals (1s). The server immediately returns the current job representation without holding the HTTP connection open. <strong>Long polling</strong> holds the request socket open waiting on the server until a state change occurs or timeout expires.
-                            </div>
-                        </div>
-
-                        <div class="defense-card">
-                            <div class="defense-header" onclick="toggleDefense(this)">
-                                <span>2. Immediate Server Response?</span>
-                                <span>+</span>
-                            </div>
-                            <div class="defense-body">
-                                Immediate responses prevent exhausting server goroutines/threads and reverse proxy timeout buffers. Each GET is a snapshot read from PostgreSQL; holding sockets open defeats the lightweight scalability of short polling.
-                            </div>
-                        </div>
-
-                        <div class="defense-card">
-                            <div class="defense-header" onclick="toggleDefense(this)">
-                                <span>3. Retrieval Error != Processing Failure?</span>
-                                <span>+</span>
-                            </div>
-                            <div class="defense-body">
-                                <strong>Required Decision Rule:</strong> Could not retrieve status = observation failure. API returned status failed = processing failure.<br>
-                                A network hiccup or timeout only means the browser failed to read the latest state. The background worker may still be actively rendering or may have already succeeded.
-                            </div>
-                        </div>
-
-                        <div class="defense-card">
-                            <div class="defense-header" onclick="toggleDefense(this)">
-                                <span>4. Stop Loop at Terminal States?</span>
-                                <span>+</span>
-                            </div>
-                            <div class="defense-body">
-                                <code>completed</code> and <code>failed</code> are mathematically terminal in the state machine (JOB-03). Continuing to poll generates useless network traffic and server CPU load since the job status can never change again.
-                            </div>
-                        </div>
-
-                        <div class="defense-card">
-                            <div class="defense-header" onclick="toggleDefense(this)">
-                                <span>5. Role of AbortController?</span>
-                                <span>+</span>
-                            </div>
-                            <div class="defense-body">
-                                <code>AbortController</code> immediately cancels active in-flight status fetches when a user submits a different image, resets the console, or closes/navigates away from the page, preventing orphaned async callbacks from updating obsolete DOM state.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Column: Observability Telemetry, Timeline, Envelope & Audit -->
-                <div>
-                    <!-- Pipeline Stage Stepper (UI-11) -->
-                    <div class="lab-panel">
-                        <div class="lab-panel-title">
-                            <span>Pipeline Lifecycle Stages</span>
-                            <span id="labStatusBadge" class="badge badge-idle">No active job</span>
-                        </div>
-
-                        <div class="timeline-stepper">
-                            <div id="stepUpload" class="timeline-node">
-                                <div class="timeline-indicator">1</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-step-title">Upload Accepted (HTTP 202)</div>
-                                    <div id="descUpload" class="timeline-step-desc">Awaiting POST dispatch</div>
-                                </div>
-                            </div>
-                            <div id="stepStorage" class="timeline-node">
-                                <div class="timeline-indicator">2</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-step-title">Original Stored & Enqueued</div>
-                                    <div id="descStorage" class="timeline-step-desc">Durably committed to PostgreSQL</div>
-                                </div>
-                            </div>
-                            <div id="stepVariants" class="timeline-node">
-                                <div class="timeline-indicator">3</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-step-title">Generating Variants</div>
-                                    <div id="descVariants" class="timeline-step-desc">Background worker execution</div>
-                                </div>
-                            </div>
-                            <div id="stepComplete" class="timeline-node">
-                                <div class="timeline-indicator">4</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-step-title">Terminal State Complete</div>
-                                    <div id="descComplete" class="timeline-step-desc">All variants ready and served</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Active Polling Indicator (UI-12, POLL-04) -->
-                        <div id="labPollingBar" style="display: none; align-items: center; justify-content: space-between; padding: 0.7rem 0.95rem; background-color: var(--bg-blue-tint); border: 1px solid var(--border-blue-subtle); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.76rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span class="pulse-indicator"></span>
-                                <span style="color: var(--text-heading); font-weight: 600;">Short Polling Active:</span>
-                                <span style="color: var(--text-blue);">Every 1.0 second</span>
-                            </div>
-                            <span id="labPollBadge" class="badge badge-processing">Polls: 0</span>
-                        </div>
-                    </div>
-
-                    <!-- Telemetry Metrics Grid (Section 15) -->
-                    <div class="metric-grid">
-                        <div class="metric-card">
-                            <div class="metric-card-label">Ack Latency</div>
-                            <div id="mLatency" class="metric-card-val">—</div>
-                            <div id="mLatencyStatus" class="metric-card-footnote">Sub-30ms target</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-card-label">Queue Wait</div>
-                            <div id="mQueueWait" class="metric-card-val">—</div>
-                            <div class="metric-card-footnote">started_at - queued_at</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-card-label">Processing Duration</div>
-                            <div id="mProcDuration" class="metric-card-val">—</div>
-                            <div class="metric-card-footnote">completed - started</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-card-label">Total Job Duration</div>
-                            <div id="mJobDuration" class="metric-card-val">—</div>
-                            <div class="metric-card-footnote">completed - queued</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-card-label">Status Poll Count</div>
-                            <div id="mPollCount" class="metric-card-val">0</div>
-                            <div id="mPollStatus" class="metric-card-footnote">Idle</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-card-label">Detection Delay</div>
-                            <div id="mDetectionDelay" class="metric-card-val">—</div>
-                            <div class="metric-card-footnote">client obs - server fin</div>
-                        </div>
-                    </div>
-
-                    <!-- Durable Job Inspector Table (Section 10) -->
-                    <div class="lab-panel">
-                        <div class="lab-panel-title">
-                            <span>Durable State Inspector</span>
-                            <span id="labHttpChip" class="badge badge-idle">Awaiting POST</span>
-                        </div>
-                        <table class="inspector-table">
-                            <tbody>
-                                <tr>
-                                    <td class="inspector-key">Job Identifier:</td>
-                                    <td class="inspector-val" id="dispJobId">—</td>
-                                </tr>
-                                <tr>
-                                    <td class="inspector-key">Image ID:</td>
-                                    <td class="inspector-val" id="dispImageId">—</td>
-                                </tr>
-                                <tr>
-                                    <td class="inspector-key">Status URL:</td>
-                                    <td class="inspector-val" id="dispStatusUrl">—</td>
-                                </tr>
-                                <tr>
-                                    <td class="inspector-key">Current State:</td>
-                                    <td class="inspector-val" id="dispJobState">idle</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <!-- Live JSON Response Envelope -->
-                        <div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 700;">LATEST HTTP RESPONSE ENVELOPE:</div>
-                        <pre id="labResponseEnvelope" class="code-envelope">// Response envelope will appear here upon submission and status poll.</pre>
-                    </div>
-
-                    <!-- Client Audit Stream -->
-                    <div class="lab-panel">
-                        <div class="lab-panel-title">
-                            <span>Client Event Audit Stream</span>
-                            <button id="btnClearAudit" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;">Clear</button>
-                        </div>
-                        <div id="labAuditList" class="audit-log-container">
-                            <!-- Items prepended here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
     </main>
 
     <!-- Modal Lightbox for Image Inspection -->
@@ -1733,27 +1096,23 @@
     </div>
 
     <!-- ======================================================================
-         SHARED JAVASCRIPT STATE ENGINE & SHORT-POLLING SYSTEM
+         CUSTOMER STUDIO STATE ENGINE & SHORT-POLLING SYSTEM
          ====================================================================== -->
     <script>
         // Global Application State (Single authoritative source of truth)
         let selectedFile = null;
-        let isSubmitting = false; // SUB-02: Concurrency guard flag
+        let isSubmitting = false; // Concurrency guard flag
         let activeJobPublicId = null;
         let activeImageId = null;
         let activeStatusUrl = null;
         let lastObservedState = null;
         let pollCount = 0;
         let pollingIntervalId = null;
-        let pollAbortController = null; // POLL-06: AbortController lifecycle
+        let pollAbortController = null; // AbortController lifecycle
         let submissionStartTime = 0;
         let simulateStatusErrorOnce = false;
 
-        // DOM Element Caches: Navigation
-        const navBtnCustomer = document.getElementById('navBtnCustomer');
-        const navBtnLab = document.getElementById('navBtnLab');
-        const viewCustomer = document.getElementById('viewCustomer');
-        const viewLab = document.getElementById('viewLab');
+        // Navigation & Global Reset
         const globalResetBtn = document.getElementById('globalResetBtn');
 
         // Customer View DOM Elements
@@ -1778,107 +1137,13 @@
         const custTrackerStateLabel = document.getElementById('custTrackerStateLabel');
         const custTrackerMsg = document.getElementById('custTrackerMsg');
         const custProgressBar = document.getElementById('custProgressBar');
+        const custHeartbeatText = document.getElementById('custHeartbeatText');
         const custPollCounter = document.getElementById('custPollCounter');
         const custEmptyPlaceholder = document.getElementById('custEmptyPlaceholder');
         const custEmptyTitle = document.getElementById('custEmptyTitle');
         const custEmptySubtitle = document.getElementById('custEmptySubtitle');
         const custVariantsSuite = document.getElementById('custVariantsSuite');
         const custCompletedTime = document.getElementById('custCompletedTime');
-
-        // Lab View DOM Elements
-        const labFileInput = document.getElementById('labFileInput');
-        const labDropzone = document.getElementById('labDropzone');
-        const labPreviewBox = document.getElementById('labPreviewBox');
-        const labPreviewImg = document.getElementById('labPreviewImg');
-        const labMetaName = document.getElementById('labMetaName');
-        const labMetaSize = document.getElementById('labMetaSize');
-        const labMetaMime = document.getElementById('labMetaMime');
-        const labProcessBtn = document.getElementById('labProcessBtn');
-        const labBtnSpinner = document.getElementById('labBtnSpinner');
-        const labBtnText = document.getElementById('labBtnText');
-        const labIngestBadge = document.getElementById('labIngestBadge');
-        const labAlertBox = document.getElementById('labAlertBox');
-        const labRetrievalErrorBox = document.getElementById('labRetrievalErrorBox');
-        const labTryAgainBtn = document.getElementById('labTryAgainBtn');
-        const labProcessingErrorBox = document.getElementById('labProcessingErrorBox');
-        const labProcessingErrorMsg = document.getElementById('labProcessingErrorMsg');
-        const labStatusBadge = document.getElementById('labStatusBadge');
-        const labPollingBar = document.getElementById('labPollingBar');
-        const labPollBadge = document.getElementById('labPollBadge');
-        const labHttpChip = document.getElementById('labHttpChip');
-        const dispJobId = document.getElementById('dispJobId');
-        const dispImageId = document.getElementById('dispImageId');
-        const dispStatusUrl = document.getElementById('dispStatusUrl');
-        const dispJobState = document.getElementById('dispJobState');
-        const labResponseEnvelope = document.getElementById('labResponseEnvelope');
-        const labAuditList = document.getElementById('labAuditList');
-        const btnClearAudit = document.getElementById('btnClearAudit');
-
-        // Lab Stepper DOM Elements
-        const stepUpload = document.getElementById('stepUpload');
-        const stepStorage = document.getElementById('stepStorage');
-        const stepVariants = document.getElementById('stepVariants');
-        const stepComplete = document.getElementById('stepComplete');
-        const descUpload = document.getElementById('descUpload');
-        const descStorage = document.getElementById('descStorage');
-        const descVariants = document.getElementById('descVariants');
-        const descComplete = document.getElementById('descComplete');
-
-        // Lab Metrics Elements
-        const mLatency = document.getElementById('mLatency');
-        const mLatencyStatus = document.getElementById('mLatencyStatus');
-        const mQueueWait = document.getElementById('mQueueWait');
-        const mProcDuration = document.getElementById('mProcDuration');
-        const mJobDuration = document.getElementById('mJobDuration');
-        const mPollCount = document.getElementById('mPollCount');
-        const mPollStatus = document.getElementById('mPollStatus');
-        const mDetectionDelay = document.getElementById('mDetectionDelay');
-
-        // Lab Simulation Buttons
-        const btnSimRetrievalError = document.getElementById('btnSimRetrievalError');
-        const btnTestRapidClicks = document.getElementById('btnTestRapidClicks');
-        const btnSimWorkerFail = document.getElementById('btnSimWorkerFail');
-        const btnSimBurst = document.getElementById('btnSimBurst');
-
-        /* ====================================================================
-           NAVIGATION & VIEW SWITCHING ROUTER
-           Supports tab clicks, /lab, /customer, and ?view= query parameter
-           ==================================================================== */
-        function switchView(mode) {
-            if (mode === 'lab') {
-                navBtnLab.classList.add('active');
-                navBtnLab.setAttribute('aria-selected', 'true');
-                navBtnCustomer.classList.remove('active');
-                navBtnCustomer.setAttribute('aria-selected', 'false');
-                viewLab.classList.add('active');
-                viewCustomer.classList.remove('active');
-                history.replaceState(null, '', window.location.pathname.includes('/lab') ? '/lab' : '?view=lab');
-            } else {
-                navBtnCustomer.classList.add('active');
-                navBtnCustomer.setAttribute('aria-selected', 'true');
-                navBtnLab.classList.remove('active');
-                navBtnLab.setAttribute('aria-selected', 'false');
-                viewCustomer.classList.add('active');
-                viewLab.classList.remove('active');
-                history.replaceState(null, '', window.location.pathname.includes('/customer') ? '/customer' : '?view=customer');
-            }
-        }
-
-        navBtnCustomer.addEventListener('click', () => switchView('customer'));
-        navBtnLab.addEventListener('click', () => switchView('lab'));
-
-        // Initialize view based on URL or parameter
-        (function initViewRouting() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const viewParam = urlParams.get('view');
-            const path = window.location.pathname;
-
-            if (path === '/lab' || viewParam === 'lab') {
-                switchView('lab');
-            } else {
-                switchView('customer');
-            }
-        })();
 
         /* ====================================================================
            FILE SELECTION & LOCAL OBJECT URL PREVIEW (UI-01, UI-05, UI-06, UI-07)
@@ -1915,7 +1180,6 @@
         }
 
         setupFileInput(custFileInput, custDropzone);
-        setupFileInput(labFileInput, labDropzone);
 
         function handleFileChosen(file) {
             // Cancel any existing observation if user picks new file (POLL-06)
@@ -1936,23 +1200,10 @@
             custIngestionBadge.className = 'badge badge-warning';
             custIngestionBadge.textContent = 'File Selected';
 
-            // Synchronize Lab Workbench Preview
-            labPreviewImg.src = objectUrl;
-            labMetaName.textContent = file.name;
-            labMetaSize.textContent = formattedSize;
-            labMetaMime.textContent = mime;
-            labPreviewBox.style.display = 'block';
-            labProcessBtn.disabled = false;
-            labIngestBadge.className = 'badge badge-warning';
-            labIngestBadge.textContent = 'Ready to Dispatch';
-
             // Clear alerts & errors
             custIngestionAlert.style.display = 'none';
             custRetrievalErrorCard.style.display = 'none';
             custProcessingErrorCard.style.display = 'none';
-            labAlertBox.style.display = 'none';
-            labRetrievalErrorBox.style.display = 'none';
-            labProcessingErrorBox.style.display = 'none';
 
             logAudit(`Local file chosen: "${file.name}" (${formattedSize}). URL.createObjectURL bound (0 bytes sent).`, 'poll');
         }
@@ -1973,7 +1224,6 @@
             simulateStatusErrorOnce = false;
 
             custFileInput.value = '';
-            labFileInput.value = '';
 
             // Reset Customer View
             custPreviewBox.style.display = 'none';
@@ -1992,55 +1242,7 @@
             custEmptySubtitle.textContent = 'Select and submit an image to observe background worker transformation.';
             custVariantsSuite.style.display = 'none';
 
-            // Reset Lab View
-            labPreviewBox.style.display = 'none';
-            labPreviewImg.src = '';
-            labProcessBtn.disabled = true;
-            labBtnSpinner.style.display = 'none';
-            labBtnText.textContent = 'Dispatch work (POST)';
-            labIngestBadge.className = 'badge badge-idle';
-            labIngestBadge.textContent = 'Initial';
-            labAlertBox.style.display = 'none';
-            labRetrievalErrorBox.style.display = 'none';
-            labProcessingErrorBox.style.display = 'none';
-            labStatusBadge.className = 'badge badge-idle';
-            labStatusBadge.textContent = 'No active job';
-            labPollingBar.style.display = 'none';
-
-            dispJobId.textContent = '—';
-            dispImageId.textContent = '—';
-            dispStatusUrl.textContent = '—';
-            dispJobState.textContent = 'idle';
-            labHttpChip.className = 'badge badge-idle';
-            labHttpChip.textContent = 'Awaiting POST';
-            labResponseEnvelope.textContent = '// Server response envelope will appear here upon submission.';
-
-            // Reset Stepper
-            resetStepper();
-
-            // Reset Metrics
-            mLatency.textContent = '—';
-            mLatencyStatus.textContent = 'Sub-30ms target';
-            mLatencyStatus.className = 'metric-card-footnote';
-            mQueueWait.textContent = '—';
-            mProcDuration.textContent = '—';
-            mJobDuration.textContent = '—';
-            mPollCount.textContent = '0';
-            mPollStatus.textContent = 'Idle';
-            mDetectionDelay.textContent = '—';
-
             logAudit('Session reset to clean initial state (UI-01, UI-03, UI-04).');
-        }
-
-        function resetStepper() {
-            stepUpload.className = 'timeline-node';
-            stepStorage.className = 'timeline-node';
-            stepVariants.className = 'timeline-node';
-            stepComplete.className = 'timeline-node';
-            descUpload.textContent = 'Awaiting POST dispatch';
-            descStorage.textContent = 'Pending durable write';
-            descVariants.textContent = 'Awaiting worker claim';
-            descComplete.textContent = 'Pending terminal completion';
         }
 
         /* ====================================================================
@@ -2048,7 +1250,6 @@
            Locks isSubmitting immediately, prevents overlapping POST requests.
            ==================================================================== */
         custProcessBtn.addEventListener('click', submitImage);
-        labProcessBtn.addEventListener('click', submitImage);
 
         async function submitImage() {
             // SUB-02: Guard against duplicate in-flight requests
@@ -2065,16 +1266,11 @@
             // Engage guards immediately (SUB-01, UI-08)
             isSubmitting = true;
             custProcessBtn.disabled = true;
-            labProcessBtn.disabled = true;
             custBtnSpinner.style.display = 'inline-block';
-            labBtnSpinner.style.display = 'inline-block';
             custBtnText.textContent = 'Uploading...';
-            labBtnText.textContent = 'Dispatching...';
 
             custIngestionBadge.className = 'badge badge-warning';
             custIngestionBadge.textContent = 'Uploading...';
-            labIngestBadge.className = 'badge badge-warning';
-            labIngestBadge.textContent = 'In-Flight';
 
             // Abort any existing observation prior to starting new job (POLL-06)
             stopPolling();
@@ -2098,11 +1294,6 @@
                 });
 
                 const ackLatencyMs = Math.round(performance.now() - submissionStartTime);
-                mLatency.textContent = `${ackLatencyMs} ms`;
-                if (ackLatencyMs < 30) {
-                    mLatencyStatus.textContent = 'Sub-30ms Met (<30ms)';
-                    mLatencyStatus.className = 'metric-card-footnote';
-                }
 
                 let responseData;
                 try {
@@ -2110,8 +1301,6 @@
                 } catch {
                     responseData = { message: 'Non-JSON server response' };
                 }
-
-                labResponseEnvelope.textContent = JSON.stringify(responseData, null, 2);
 
                 if (response.status === 202) {
                     handle202Accepted(responseData, ackLatencyMs);
@@ -2124,11 +1313,8 @@
             } finally {
                 isSubmitting = false;
                 custBtnSpinner.style.display = 'none';
-                labBtnSpinner.style.display = 'none';
                 custBtnText.textContent = 'Process Asset Suite';
-                labBtnText.textContent = 'Dispatch work (POST)';
                 custProcessBtn.disabled = false;
-                labProcessBtn.disabled = false;
             }
         }
 
@@ -2152,29 +1338,6 @@
             custTrackerMsg.textContent = `Server accepted work in ${latency}ms. Job #${activeJobPublicId} durably queued.`;
             custProgressBar.style.width = '25%';
 
-            // Lab UI Updates
-            labIngestBadge.className = 'badge badge-completed';
-            labIngestBadge.textContent = '202 Accepted';
-            labHttpChip.className = 'badge badge-completed';
-            labHttpChip.textContent = `202 Accepted (${latency}ms)`;
-            labStatusBadge.className = 'badge badge-queued';
-            labStatusBadge.textContent = 'queued';
-
-            dispJobId.textContent = activeJobPublicId;
-            dispImageId.textContent = activeImageId || '—';
-            dispStatusUrl.textContent = activeStatusUrl;
-            dispJobState.textContent = 'queued';
-
-            // Stepper Stage Updates (UI-11)
-            stepUpload.className = 'timeline-node completed';
-            descUpload.textContent = `Accepted in ${latency}ms (HTTP 202)`;
-            stepStorage.className = 'timeline-node completed';
-            descStorage.textContent = 'Durably persisted on disk & DB';
-            stepVariants.className = 'timeline-node active';
-            descVariants.textContent = 'Queued: pending background worker claim';
-            stepComplete.className = 'timeline-node';
-            descComplete.textContent = 'Pending variant generation';
-
             logAudit(`HTTP 202 Accepted in ${latency}ms. Durable Job: ${activeJobPublicId}. Location: ${activeStatusUrl}`, 'success');
 
             // Begin Short Polling (POLL-01: ONLY after 202 and status_url received)
@@ -2184,25 +1347,17 @@
         function handleUploadRejected(status, data) {
             custIngestionBadge.className = 'badge badge-failed';
             custIngestionBadge.textContent = `HTTP ${status}`;
-            labIngestBadge.className = 'badge badge-failed';
-            labIngestBadge.textContent = `HTTP ${status}`;
-            labHttpChip.className = 'badge badge-failed';
-            labHttpChip.textContent = `HTTP ${status}`;
 
             const reason = data.error || data.message || JSON.stringify(data);
             showCustomerAlert(`<strong>Upload Rejected (${status}):</strong> ${reason}`, 'error');
-            showLabAlert(`<strong>Upload Rejected (${status}):</strong> ${reason}`, 'error');
             logAudit(`POST /v1/images rejected (${status}): ${reason}`, 'error');
         }
 
         function handleUploadNetworkError(err) {
             custIngestionBadge.className = 'badge badge-failed';
             custIngestionBadge.textContent = 'Network Error';
-            labIngestBadge.className = 'badge badge-failed';
-            labIngestBadge.textContent = 'Network Error';
 
             showCustomerAlert(`<strong>Network Error:</strong> ${err.message}. Ensure Go backend is running on :4000.`, 'error');
-            showLabAlert(`<strong>Network Error:</strong> ${err.message}`, 'error');
             logAudit(`Network error on upload dispatch: ${err.message}`, 'error');
         }
 
@@ -2214,13 +1369,7 @@
             stopPolling(); // Ensure clean slate
 
             pollCount = 0;
-            mPollCount.textContent = '0';
-            mPollStatus.textContent = 'Active (1s)';
-            mPollStatus.className = 'metric-card-footnote';
-
             custPollCounter.textContent = 'Poll #0';
-            labPollBadge.textContent = 'Polls: 0';
-            labPollingBar.style.display = 'flex';
 
             // POLL-06: AbortController allows canceling current observation
             pollAbortController = new AbortController();
@@ -2245,7 +1394,6 @@
                 pollAbortController.abort(); // Cancel in-flight request
                 pollAbortController = null;
             }
-            labPollingBar.style.display = 'none';
         }
 
         // Cancel observation when window unloads or page is backgrounded (POLL-06)
@@ -2256,11 +1404,9 @@
             if (!activeStatusUrl) return;
 
             pollCount++;
-            mPollCount.textContent = pollCount;
             custPollCounter.textContent = `Poll #${pollCount}`;
-            labPollBadge.textContent = `Polls: ${pollCount}`;
 
-            // Fault Injection Simulation for grading (Simulate status retrieval error)
+            // Fault Injection Simulation for testing (Simulate status retrieval error)
             let fetchUrl = activeStatusUrl;
             if (simulateStatusErrorOnce) {
                 simulateStatusErrorOnce = false;
@@ -2282,22 +1428,16 @@
                 }
 
                 const responseData = await response.json();
-                labResponseEnvelope.textContent = JSON.stringify(responseData, null, 2);
-
                 const job = responseData.job || responseData;
                 const status = job.status;
                 lastObservedState = status;
-                dispJobState.textContent = status;
-
-                // Update Timestamps & Durations
-                updateMetricsFromJob(job);
 
                 logAudit(`GET ${fetchUrl} -> status: "${status}" (poll #${pollCount})`, 'poll');
 
                 // State Machine Dispatch (POLL-05)
                 if (status === 'completed') {
                     stopPolling(); // POLL-05: Terminal stop
-                    handleTerminalCompleted(job);
+                    handleTerminalCompleted(job, responseData.variants);
                 } else if (status === 'failed') {
                     stopPolling(); // POLL-05: Terminal stop
                     handleTerminalFailed(job);
@@ -2322,65 +1462,43 @@
            ACTIVE STATES: QUEUED & PROCESSING
            ==================================================================== */
         function handleStateQueued(job) {
+            custIngestionBadge.className = 'badge badge-queued';
+            custIngestionBadge.textContent = 'Queued';
             custStatusBadge.className = 'badge badge-queued';
             custStatusBadge.textContent = 'queued';
             custTrackerStateLabel.textContent = 'Queued in PostgreSQL';
             custTrackerMsg.textContent = 'Awaiting available background worker slot to begin variant generation...';
             custProgressBar.style.width = '35%';
-
-            labStatusBadge.className = 'badge badge-queued';
-            labStatusBadge.textContent = 'queued';
-
-            stepVariants.className = 'timeline-node active';
-            descVariants.textContent = 'Queued in DB; worker pending claim';
         }
 
         function handleStateProcessing(job) {
+            custIngestionBadge.className = 'badge badge-processing';
+            custIngestionBadge.textContent = 'Processing';
             custStatusBadge.className = 'badge badge-processing';
             custStatusBadge.textContent = 'processing';
             custTrackerStateLabel.textContent = 'Worker Active';
             custTrackerMsg.textContent = 'Worker claimed job. Rendering thumbnail (150x150), preview (800x600), and display (1200x900)...';
             custProgressBar.style.width = '70%';
-
-            labStatusBadge.className = 'badge badge-processing';
-            labStatusBadge.textContent = 'processing';
-
-            stepVariants.className = 'timeline-node active';
-            descVariants.textContent = 'Worker actively executing image transformations';
         }
 
         /* ====================================================================
            TERMINAL STATE: COMPLETED (UI-15, POLL-05)
            ==================================================================== */
-        function handleTerminalCompleted(job) {
-            mPollStatus.textContent = 'Terminal: Completed';
-            mPollStatus.className = 'metric-card-footnote';
-
+        function handleTerminalCompleted(job, altVariants) {
             // Customer UI Delivery Suite
             custTrackerCard.style.display = 'none';
             custEmptyPlaceholder.style.display = 'none';
             custVariantsSuite.style.display = 'block';
 
+            custIngestionBadge.className = 'badge badge-completed';
+            custIngestionBadge.textContent = 'Completed';
+
             const finishDate = job.completed_at ? new Date(job.completed_at) : new Date();
             custCompletedTime.textContent = `Completed at ${finishDate.toLocaleTimeString()}`;
 
-            // Lab UI Stepper & Badges
-            labStatusBadge.className = 'badge badge-completed';
-            labStatusBadge.textContent = 'completed';
-
-            stepVariants.className = 'timeline-node completed';
-            descVariants.textContent = 'All 3 variants transformed and saved';
-            stepComplete.className = 'timeline-node completed';
-            descComplete.textContent = `Finished at ${finishDate.toLocaleTimeString()}`;
-
-            // Calculate Detection Delay (Section 15)
-            if (job.completed_at) {
-                const detectionDelay = Math.max(0, Date.now() - new Date(job.completed_at).getTime());
-                mDetectionDelay.textContent = `${detectionDelay} ms`;
-            }
-
             // Render all 3 variants with actual dimensions and download URLs
-            renderVariantsSuite(job.variants || []);
+            const variants = (job && job.variants) || altVariants || [];
+            renderVariantsSuite(variants);
             logAudit(`Job #${activeJobPublicId} completed. All variants rendered. Observation closed.`, 'success');
         }
 
@@ -2406,9 +1524,6 @@
            TERMINAL STATE: FAILED (UI-16, WRK-03, POLL-05)
            ==================================================================== */
         function handleTerminalFailed(job) {
-            mPollStatus.textContent = 'Terminal: Failed';
-            mPollStatus.className = 'metric-card-footnote';
-
             const safeMsg = job.error_message || 'Image processing failed due to unrecoverable transformation error.';
 
             // Customer View Error Callout
@@ -2422,17 +1537,6 @@
             custEmptySubtitle.textContent = safeMsg;
             custVariantsSuite.style.display = 'none';
 
-            // Lab View Updates
-            labStatusBadge.className = 'badge badge-failed';
-            labStatusBadge.textContent = 'failed';
-            labProcessingErrorMsg.textContent = safeMsg;
-            labProcessingErrorBox.style.display = 'block';
-
-            stepVariants.className = 'timeline-node failed';
-            descVariants.textContent = 'Worker failed during image transformation';
-            stepComplete.className = 'timeline-node failed';
-            descComplete.textContent = 'Terminal state: Failed';
-
             logAudit(`Job #${activeJobPublicId} reported terminal failure: "${safeMsg}"`, 'error');
         }
 
@@ -2444,129 +1548,23 @@
             // POLL-07: Stop the automatic polling loop
             stopPolling();
 
-            mPollStatus.textContent = 'Halted (Network Error)';
-            mPollStatus.className = 'metric-card-footnote';
-
             // POLL-08: Preserve observed job, do NOT set job state to failed
             custRetrievalErrorCard.style.display = 'block';
-            labRetrievalErrorBox.style.display = 'block';
 
             logAudit(`OBSERVATION FAILURE: ${reason}. Polling halted. Job #${activeJobPublicId} and last state "${lastObservedState}" preserved.`, 'error');
         }
 
         // Try Again Resumption (POLL-10)
         custTryAgainBtn.addEventListener('click', resumeObservation);
-        labTryAgainBtn.addEventListener('click', resumeObservation);
 
         function resumeObservation() {
             custRetrievalErrorCard.style.display = 'none';
-            labRetrievalErrorBox.style.display = 'none';
 
             logAudit(`Resuming observation of existing status_url (${activeStatusUrl}) without resubmitting image...`, 'poll');
 
             // Resume short polling of the exact same status_url
             startShortPolling();
         }
-
-        /* ====================================================================
-           METRICS CALCULATOR (Section 15)
-           ==================================================================== */
-        function updateMetricsFromJob(job) {
-            const queuedTime = job.queued_at || job.created_at;
-            if (job.started_at && queuedTime) {
-                const qWait = Math.max(0, new Date(job.started_at) - new Date(queuedTime));
-                mQueueWait.textContent = `${qWait} ms`;
-            }
-            if (job.completed_at && job.started_at) {
-                const pDur = Math.max(0, new Date(job.completed_at) - new Date(job.started_at));
-                mProcDuration.textContent = `${pDur} ms`;
-            }
-            if (job.completed_at && queuedTime) {
-                const jDur = Math.max(0, new Date(job.completed_at) - new Date(queuedTime));
-                mJobDuration.textContent = `${jDur} ms`;
-            }
-        }
-
-        /* ====================================================================
-           FAULT INJECTION & VERIFICATION CONTROLS FOR CHECK-IN DEMO
-           ==================================================================== */
-        // 1. Simulate Status Retrieval Error (Demonstrates POLL-07 - POLL-10 & Try Again)
-        btnSimRetrievalError.addEventListener('click', () => {
-            if (!activeStatusUrl || (lastObservedState === 'completed' || lastObservedState === 'failed')) {
-                showLabAlert('Submit an image first (or have an active job) to simulate a status retrieval error during polling.', 'warning');
-                return;
-            }
-            simulateStatusErrorOnce = true;
-            logAudit('Arming fault injection: The very next status poll will simulate a retrieval error...', 'blocked');
-        });
-
-        // 2. Test Concurrency Guard (Demonstrates SUB-01, SUB-02)
-        btnTestRapidClicks.addEventListener('click', () => {
-            if (!selectedFile) {
-                showLabAlert('Please select an image file first to test rapid click concurrency locking.', 'warning');
-                return;
-            }
-
-            logAudit('Firing 5 rapid repeated clicks within 50ms to demonstrate isSubmitting lock...', 'dispatch');
-            for (let i = 1; i <= 5; i++) {
-                setTimeout(() => {
-                    logAudit(`Rapid Click #${i} dispatched.`);
-                    submitImage();
-                }, (i - 1) * 10);
-            }
-        });
-
-        // 3. Simulate Deliberate Worker Failure (Demonstrates WRK-03, UI-16)
-        btnSimWorkerFail.addEventListener('click', () => {
-            logAudit('Synthesizing valid-magic-bytes JPEG with corrupted image body to trigger worker decode failure...', 'dispatch');
-            // Valid JPEG magic bytes (FF D8 FF E0) followed by invalid scan data
-            const fakeJpegHeader = new Uint8Array([
-                0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00, 0x48,
-                0x00, 0x48, 0x00, 0x00, 0xFF, 0xD9
-            ]);
-            const blob = new Blob([fakeJpegHeader], { type: 'image/jpeg' });
-            const corruptFile = new File([blob], 'corrupt_deliberate_fail.jpg', { type: 'image/jpeg' });
-
-            handleFileChosen(corruptFile);
-            showLabAlert('Corrupted payload loaded. Click "Dispatch work (POST)" to watch server accept with 202 and worker report terminal <code>failed</code> with safe error message.', 'warning');
-        });
-
-        // 4. Simulate Burst of 5 Jobs (Demonstrates single worker queue backlog)
-        btnSimBurst.addEventListener('click', async () => {
-            logAudit('Synthesizing sample image for burst demonstration...', 'dispatch');
-
-            const canvas = document.createElement('canvas');
-            canvas.width = 400;
-            canvas.height = 300;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#0284c7';
-            ctx.fillRect(0, 0, 400, 300);
-
-            canvas.toBlob(async (blob) => {
-                const burstFile = new File([blob], 'burst_test.jpg', { type: 'image/jpeg' });
-                logAudit('Dispatching 5 concurrent POST requests to /v1/images...', 'dispatch');
-
-                for (let i = 1; i <= 5; i++) {
-                    const fd = new FormData();
-                    fd.append('image', burstFile);
-                    fetch('/v1/images', { method: 'POST', body: fd })
-                        .then(r => r.json())
-                        .then(data => {
-                            const jId = data.job_id || (data.job && data.job.public_id);
-                            logAudit(`Burst #${i} Accepted: Job #${jId} (status: queued)`, 'success');
-                            if (i === 1) {
-                                // Observe the first job
-                                activeJobPublicId = jId;
-                                activeStatusUrl = data.status_url || data.job.status_url;
-                                dispJobId.textContent = activeJobPublicId;
-                                dispStatusUrl.textContent = activeStatusUrl;
-                                startShortPolling();
-                            }
-                        })
-                        .catch(err => logAudit(`Burst #${i} failed: ${err.message}`, 'error'));
-                }
-            }, 'image/jpeg');
-        });
 
         /* ====================================================================
            LIGHTBOX MODAL & UTILITY FUNCTIONS
@@ -2583,48 +1581,15 @@
             document.getElementById('lightboxModal').classList.remove('open');
         }
 
-        function toggleDefense(headerElement) {
-            const body = headerElement.nextElementSibling;
-            const indicator = headerElement.querySelector('span:last-child');
-            if (body.style.display === 'block') {
-                body.style.display = 'none';
-                indicator.textContent = '+';
-            } else {
-                body.style.display = 'block';
-                indicator.textContent = '−';
-            }
-        }
-
         function showCustomerAlert(html, type) {
             custIngestionAlert.style.display = 'block';
             custIngestionAlert.className = `callout callout-${type}`;
             custIngestionAlert.innerHTML = `<div>${html}</div>`;
         }
 
-        function showLabAlert(html, type) {
-            labAlertBox.style.display = 'block';
-            labAlertBox.className = `callout callout-${type}`;
-            labAlertBox.innerHTML = `<div>${html}</div>`;
-        }
-
         function logAudit(message, tag = 'poll') {
-            const item = document.createElement('div');
-            item.className = 'audit-item';
-            const now = new Date();
-            const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
-
-            item.innerHTML = `
-                <span class="audit-time">${timeStr}</span>
-                <span class="audit-tag audit-tag-${tag}">${tag}</span>
-                <span>${message}</span>
-            `;
-            labAuditList.prepend(item);
+            console.log(`[${tag.toUpperCase()}] ${message}`);
         }
-
-        btnClearAudit.addEventListener('click', () => {
-            labAuditList.innerHTML = '';
-            logAudit('Client audit log cleared.');
-        });
 
         function formatBytes(bytes) {
             if (bytes === 0) return '0 Bytes';
@@ -2634,8 +1599,12 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
+        // Optional debugging helper on window
+        window.__simulateStatusError = () => { simulateStatusErrorOnce = true; };
+        window.__activeJob = () => ({ id: activeJobPublicId, status: lastObservedState, url: activeStatusUrl, pollCount });
+
         // Initial welcome log
-        logAudit('ImageLab Engine initialized. Short polling readiness verified (POLL-01 - POLL-10).', 'success');
+        logAudit('ImageLab Engine initialized. Customer Studio active.', 'success');
     </script>
 </body>
 </html>

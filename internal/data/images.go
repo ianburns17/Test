@@ -28,6 +28,9 @@ type ImageModel struct {
 // Insert persists an accepted image record to PostgreSQL.
 // Uses client-generated UUIDv7 for time-ordered locality or database default.
 func (m ImageModel) Insert(image *Image) error {
+	if m.DB == nil {
+		return errors.New("database connection is not available")
+	}
 	query := `
 		INSERT INTO images (id, original_filename, storage_path, mime_type, file_size, width, height)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -59,6 +62,9 @@ func (m ImageModel) Insert(image *Image) error {
 
 // Get retrieves an image record by its primary key UUID.
 func (m ImageModel) Get(id uuid.UUID) (*Image, error) {
+	if m.DB == nil {
+		return nil, errors.New("database connection is not available")
+	}
 	query := `
 		SELECT id, original_filename, storage_path, mime_type, file_size, width, height, created_at, updated_at
 		FROM images

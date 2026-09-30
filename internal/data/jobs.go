@@ -32,6 +32,9 @@ type JobModel struct {
 // Insert creates a new asynchronous job associated with an uploaded image.
 // Defaults status to 'queued' and sets public_id to an unguessable UUIDv4.
 func (m JobModel) Insert(job *Job) error {
+	if m.DB == nil {
+		return errors.New("database connection is not available")
+	}
 	query := `
 		INSERT INTO jobs (id, public_id, image_id, job_type, status, payload)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -74,6 +77,9 @@ func (m JobModel) Insert(job *Job) error {
 
 // Get retrieves a job by internal UUID.
 func (m JobModel) Get(id uuid.UUID) (*Job, error) {
+	if m.DB == nil {
+		return nil, errors.New("database connection is not available")
+	}
 	query := `
 		SELECT id, public_id, image_id, job_type, status, payload, result, error_message, started_at, completed_at, created_at, updated_at
 		FROM jobs
@@ -117,6 +123,9 @@ func (m JobModel) Get(id uuid.UUID) (*Job, error) {
 
 // GetByPublicID retrieves a job by client-facing unguessable public_id.
 func (m JobModel) GetByPublicID(publicID uuid.UUID) (*Job, error) {
+	if m.DB == nil {
+		return nil, errors.New("database connection is not available")
+	}
 	query := `
 		SELECT id, public_id, image_id, job_type, status, payload, result, error_message, started_at, completed_at, created_at, updated_at
 		FROM jobs
@@ -160,6 +169,9 @@ func (m JobModel) GetByPublicID(publicID uuid.UUID) (*Job, error) {
 
 // ClaimNextJob atomically claims the oldest queued job using an atomic SQL CTE with FOR UPDATE SKIP LOCKED.
 func (m JobModel) ClaimNextJob(jobType string) (*Job, error) {
+	if m.DB == nil {
+		return nil, errors.New("database connection is not available")
+	}
 	query := `
 		WITH next_job AS (
 			SELECT id
@@ -213,6 +225,9 @@ func (m JobModel) ClaimNextJob(jobType string) (*Job, error) {
 
 // Update updates an existing job row with mutated status, timestamps, and results.
 func (m JobModel) Update(j *Job) error {
+	if m.DB == nil {
+		return errors.New("database connection is not available")
+	}
 	query := `
 		UPDATE jobs
 		SET status = $1, result = $2, error_message = $3, started_at = COALESCE($4, started_at), completed_at = $5

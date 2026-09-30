@@ -36,7 +36,9 @@ func (a *applicationDependencies) startWorker(ctx context.Context) {
 				return
 			case <-ticker.C:
 				if a.models.Jobs.DB == nil {
-					continue
+					if !a.tryConnectDB() {
+						continue
+					}
 				}
 				a.processNextQueuedJob(ctx)
 			}
@@ -76,6 +78,17 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 		a.logger.Error("worker failed to find image record", "job_id", job.ID, "error", err)
 		_ = a.models.Jobs.MarkFailed(job.ID, errMsg)
 		return
+	}
+
+	// Apply configured simulated processing delay (e.g. -processing-delay=15s)
+	// Keeps the job in 'processing' state so short polling and UI transitions can be observed.
+	if a.config.processingDelay > 0 {
+		a.logger.Info("applying simulated processing delay",
+			"duration", a.config.processingDelay.String(),
+			"job_id", job.ID.String(),
+			"public_id", job.PublicID.String(),
+		)
+		time.Sleep(a.config.processingDelay)
 	}
 
 	// 2. Check for deliberate failure induction

@@ -150,13 +150,20 @@ func (a *applicationDependencies) uploadImageHandler(w http.ResponseWriter, r *h
 		FileSize:         written,
 	}
 
-	if a.models.Images.DB != nil {
-		err = a.models.Images.Insert(img)
-		if err != nil {
-			_ = os.Remove(serverFilePath)
-			a.serverErrorResponse(w, r, fmt.Errorf("failed to insert image into database: %w", err))
-			return
-		}
+	if a.models.Images.DB == nil || a.models.Jobs.DB == nil {
+		a.tryConnectDB()
+	}
+	if a.models.Images.DB == nil || a.models.Jobs.DB == nil {
+		_ = os.Remove(serverFilePath)
+		a.serverErrorResponse(w, r, errors.New("database connection is not available; cannot accept job"))
+		return
+	}
+
+	err = a.models.Images.Insert(img)
+	if err != nil {
+		_ = os.Remove(serverFilePath)
+		a.serverErrorResponse(w, r, fmt.Errorf("failed to insert image into database: %w", err))
+		return
 	}
 
 	// 7. Create Job record in PostgreSQL with status 'queued'
@@ -167,16 +174,11 @@ func (a *applicationDependencies) uploadImageHandler(w http.ResponseWriter, r *h
 		Payload:  []byte(fmt.Sprintf(`{"image_id":%q,"original_filename":%q,"storage_path":%q,"mime_type":%q,"file_size":%d}`, img.ID, img.OriginalFilename, img.StoragePath, img.MimeType, img.FileSize)),
 	}
 
-	if a.models.Jobs.DB != nil {
-		err = a.models.Jobs.Insert(job)
-		if err != nil {
-			a.serverErrorResponse(w, r, fmt.Errorf("failed to enqueue job in database: %w", err))
-			return
-		}
-	} else {
-		// In-memory fallback if DB connection is offline during initial UI preview testing
-		job.ID, _ = data.NewUUIDv7()
-		job.PublicID = data.NewUUIDv4()
+	err = a.models.Jobs.Insert(job)
+	if err != nil {
+		_ = os.Remove(serverFilePath)
+		a.serverErrorResponse(w, r, fmt.Errorf("failed to enqueue job in database: %w", err))
+		return
 	}
 
 	// 8. Formulate response: HTTP 202 Accepted with Location header

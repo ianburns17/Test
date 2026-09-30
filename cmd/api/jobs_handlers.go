@@ -13,6 +13,14 @@ import (
 // getJobHandler provides read-only inspection of an asynchronous job (Section 10).
 // Accepts either the client-facing public_id (UUIDv4) or internal id (UUIDv7).
 func (a *applicationDependencies) getJobHandler(w http.ResponseWriter, r *http.Request) {
+	if a.models.Jobs.DB == nil {
+		a.tryConnectDB()
+	}
+	if a.models.Jobs.DB == nil {
+		a.serverErrorResponse(w, r, errors.New("database connection is not available"))
+		return
+	}
+
 	params := httprouter.ParamsFromContext(r.Context())
 	idStr := params.ByName("id")
 

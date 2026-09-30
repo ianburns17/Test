@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,9 @@ type VariantModel struct {
 
 // Insert creates a new image variant record (prepared for Week 2 transformations).
 func (m VariantModel) Insert(variant *ImageVariant) error {
+	if m.DB == nil {
+		return errors.New("database connection is not available")
+	}
 	query := `
 		INSERT INTO image_variants (id, image_id, variant_name, storage_path, mime_type, file_size, width, height)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -59,6 +63,9 @@ func (m VariantModel) Insert(variant *ImageVariant) error {
 
 // GetForImage retrieves all generated variants for an image.
 func (m VariantModel) GetForImage(imageID uuid.UUID) ([]*ImageVariant, error) {
+	if m.DB == nil {
+		return nil, errors.New("database connection is not available")
+	}
 	query := `
 		SELECT id, image_id, variant_name, storage_path, mime_type, file_size, width, height, created_at, updated_at
 		FROM image_variants
