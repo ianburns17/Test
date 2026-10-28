@@ -63,13 +63,22 @@ func (a *applicationDependencies) processNextQueuedJob(ctx context.Context) {
 		"job_id", job.ID.String(),
 		"public_id", job.PublicID.String(),
 		"image_id", job.ImageID.String(),
+		"version", job.Version,
+		"stage", job.Stage,
 		"started_at", job.StartedAt,
+		"post_commit_time", time.Now().UTC().Format(time.RFC3339Nano),
 	)
+
+	// Notify observers that job transitioned to 'processing' / 'starting' (VER-03)
+	if a.notifier != nil {
+		a.notifier.Notify(job.ID)
+		a.notifier.Notify(job.PublicID)
+	}
 
 	a.executeImageJob(job)
 }
 
-// executeImageJob handles reading the original, generating all 3 variants, and updating authoritative state.
+// executeImageJob handles reading the original, generating all 3 variants, publishing versioned milestones, and updating authoritative state (PROG-01, PROG-02, EXP-01).
 func (a *applicationDependencies) executeImageJob(job *data.Job) {
 	// 1. Fetch original image record
 	img, err := a.models.Images.Get(job.ImageID)
@@ -77,27 +86,92 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 		errMsg := "authoritative image metadata not found"
 		a.logger.Error("worker failed to find image record", "job_id", job.ID, "error", err)
 		_ = a.models.Jobs.MarkFailed(job.ID, errMsg)
+		if a.notifier != nil {
+			a.notifier.Notify(job.ID)
+			a.notifier.Notify(job.PublicID)
+		}
 		return
 	}
 
-	// Apply configured simulated processing delay (e.g. -processing-delay=15s)
-	// Keeps the job in 'processing' state so short polling and UI transitions can be observed.
-	if a.config.processingDelay > 0 {
-		a.logger.Info("applying simulated processing delay",
-			"duration", a.config.processingDelay.String(),
-			"job_id", job.ID.String(),
-			"public_id", job.PublicID.String(),
-		)
-		time.Sleep(a.config.processingDelay)
-	}
-
-	// 2. Check for deliberate failure induction
-	// If the original filename contains 'fail' or 'corrupt', or if payload requests intentional failure:
+	// Extract condition and payload controls (Section 5 / EXP-01 / EXP-02)
 	var payloadMap map[string]any
 	if len(job.Payload) > 0 {
 		_ = json.Unmarshal(job.Payload, &payloadMap)
 	}
 
+	condition := ""
+	if payloadMap != nil {
+		if c, ok := payloadMap["condition"].(string); ok {
+			condition = strings.ToUpper(strings.TrimSpace(c))
+		}
+	}
+
+	// Condition A: Quiet job (Add 30 seconds of delay while processing, with no intermediate updates)
+	if condition == "A" {
+		quietDelay := 30 * time.Second
+		if a.config.processingDelay > 0 {
+			quietDelay = a.config.processingDelay
+		}
+		a.logger.Info("Condition A [Quiet job]: applying 30s quiet processing delay with 0 intermediate updates",
+			"job_id", job.ID.String(),
+			"delay", quietDelay.String(),
+		)
+		time.Sleep(quietDelay)
+	} else if a.config.processingDelay > 0 {
+		a.logger.Info("applying configured simulated processing delay",
+			"duration", a.config.processingDelay.String(),
+			"job_id", job.ID.String(),
+		)
+		time.Sleep(a.config.processingDelay)
+	}
+
+	// Condition C1: Slow updates (10-second simulated phase with updates every 2 seconds -> 5 steps) (EXP-01, EXP-02, EXP-03)
+	if condition == "C1" {
+		a.logger.Info("Condition C1 [Slow updates]: starting 10s simulated phase (5 updates, 2s apart)", "job_id", job.ID.String())
+		for step := 1; step <= 5; step++ {
+			time.Sleep(2 * time.Second)
+			simText := fmt.Sprintf("Step %d/5 (%ds)", step, step*2)
+			updatedJob, err := a.models.Jobs.UpdateProgress(job.ID, "simulating", 0, simText)
+			if err == nil {
+				a.logger.Info("Condition C1 simulation step committed",
+					"job_id", job.ID.String(),
+					"version", updatedJob.Version,
+					"step", step,
+					"simulated_progress", simText,
+					"post_commit_time", time.Now().UTC().Format(time.RFC3339Nano),
+				)
+				if a.notifier != nil {
+					a.notifier.Notify(job.ID)
+					a.notifier.Notify(job.PublicID)
+				}
+			}
+		}
+	}
+
+	// Condition C2 & C3: Fast updates (10-second simulated phase with updates every 200 ms -> 50 steps) (EXP-01, EXP-02, EXP-03)
+	if condition == "C2" || condition == "C3" {
+		a.logger.Info(fmt.Sprintf("Condition %s [Fast updates]: starting 10s simulated phase (50 updates, 200ms apart)", condition), "job_id", job.ID.String())
+		for step := 1; step <= 50; step++ {
+			time.Sleep(200 * time.Millisecond)
+			simText := fmt.Sprintf("Step %d/50 (%dms)", step, step*200)
+			updatedJob, err := a.models.Jobs.UpdateProgress(job.ID, "simulating", 0, simText)
+			if err == nil {
+				a.logger.Info(fmt.Sprintf("Condition %s simulation step committed", condition),
+					"job_id", job.ID.String(),
+					"version", updatedJob.Version,
+					"step", step,
+					"simulated_progress", simText,
+					"post_commit_time", time.Now().UTC().Format(time.RFC3339Nano),
+				)
+				if a.notifier != nil {
+					a.notifier.Notify(job.ID)
+					a.notifier.Notify(job.PublicID)
+				}
+			}
+		}
+	}
+
+	// Check for deliberate failure induction
 	shouldFail := false
 	if payloadMap != nil {
 		if failVal, ok := payloadMap["fail_processing"].(bool); ok && failVal {
@@ -112,20 +186,27 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 	if shouldFail {
 		safeErr := "processing failed: image transformation could not be completed (deliberate failure triggered)"
 		a.logger.Warn("deliberate worker failure triggered", "job_id", job.ID, "filename", img.OriginalFilename)
-		// Small simulated processing delay to show lifecycle transition
 		time.Sleep(300 * time.Millisecond)
 		if err := a.models.Jobs.MarkFailed(job.ID, safeErr); err != nil {
 			a.logger.Error("failed to mark job as failed", "job_id", job.ID, "error", err)
 		}
+		if a.notifier != nil {
+			a.notifier.Notify(job.ID)
+			a.notifier.Notify(job.PublicID)
+		}
 		return
 	}
 
-	// 3. Verify original file exists on filesystem
+	// Verify original file exists on filesystem
 	diskPath := filepath.FromSlash(img.StoragePath)
 	if _, err := os.Stat(diskPath); os.IsNotExist(err) {
 		safeErr := "processing failed: original file not accessible on server storage"
 		a.logger.Error("original file not found on disk", "job_id", job.ID, "path", diskPath)
 		_ = a.models.Jobs.MarkFailed(job.ID, safeErr)
+		if a.notifier != nil {
+			a.notifier.Notify(job.ID)
+			a.notifier.Notify(job.PublicID)
+		}
 		return
 	}
 
@@ -134,28 +215,34 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 		variantsDir = "./storage/variants"
 	}
 
-	// 4. Generate variants according to Section 9 contracts:
+	// Generate variants according to Section 9 contracts:
 	// - thumbnail: 150x150 exact square center-crop
 	// - preview: max 800x600 aspect-preserved
 	// - display: max 1200x900 aspect-preserved
 	variantResults, err := transform.GenerateAllVariants(diskPath, variantsDir, img.MimeType, img.ID.String())
 	if err != nil {
-		// Client-safe error message (never expose internal paths or stack traces - Section 13)
 		safeErr := "processing failed: unable to decode or transform image format"
 		a.logger.Error("worker variant generation error", "job_id", job.ID, "error", err)
 		_ = a.models.Jobs.MarkFailed(job.ID, safeErr)
+		if a.notifier != nil {
+			a.notifier.Notify(job.ID)
+			a.notifier.Notify(job.PublicID)
+		}
 		return
 	}
 
-	// 5. Ensure all 3 variants are available before committing (IMG-03 All-or-complete contract)
 	if len(variantResults) != 3 {
 		safeErr := "processing failed: incomplete variant set generated"
 		a.logger.Error("worker variant count mismatch", "job_id", job.ID, "count", len(variantResults))
 		_ = a.models.Jobs.MarkFailed(job.ID, safeErr)
+		if a.notifier != nil {
+			a.notifier.Notify(job.ID)
+			a.notifier.Notify(job.PublicID)
+		}
 		return
 	}
 
-	// 6. Store variant records in database
+	// Store variants in database and publish versioned progress milestones (PROG-01, PROG-02)
 	type variantSummary struct {
 		Name   string `json:"name"`
 		Width  int    `json:"width"`
@@ -165,11 +252,16 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 	}
 
 	var summaries []variantSummary
-	for _, vr := range variantResults {
+	stageNames := []string{"thumbnail_ready", "preview_ready", "display_ready"}
+
+	for idx, vr := range variantResults {
+		// Provide slight natural milestone gap (150ms) so intermediate progress is observable
+		time.Sleep(150 * time.Millisecond)
+
 		w := vr.Width
 		h := vr.Height
 		vRecord := &data.ImageVariant{
-			ID:          uuid.Nil, // Let Insert generate UUIDv7
+			ID:          uuid.Nil,
 			ImageID:     img.ID,
 			VariantName: vr.Name,
 			StoragePath: vr.StoragePath,
@@ -183,6 +275,10 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 			safeErr := "processing failed: could not commit variant metadata"
 			a.logger.Error("failed to insert variant record", "job_id", job.ID, "variant", vr.Name, "error", err)
 			_ = a.models.Jobs.MarkFailed(job.ID, safeErr)
+			if a.notifier != nil {
+				a.notifier.Notify(job.ID)
+				a.notifier.Notify(job.PublicID)
+			}
 			return
 		}
 
@@ -193,21 +289,54 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 			URL:    fmt.Sprintf("/v1/images/%s/variants/%s", img.ID.String(), vr.Name),
 			Size:   vr.FileSize,
 		})
+
+		variantsCompleted := idx + 1
+		stage := stageNames[idx]
+
+		if variantsCompleted < 3 {
+			// Intermediate milestone (thumbnail_ready at count 1, preview_ready at count 2)
+			updatedJob, err := a.models.Jobs.UpdateProgress(job.ID, stage, variantsCompleted, "")
+			if err != nil {
+				a.logger.Error("failed to update progress milestone", "job_id", job.ID, "stage", stage, "error", err)
+			} else {
+				a.logger.Info("progress milestone committed",
+					"job_id", job.ID.String(),
+					"version", updatedJob.Version,
+					"stage", updatedJob.Stage,
+					"variants_completed", updatedJob.VariantsCompleted,
+					"post_commit_time", time.Now().UTC().Format(time.RFC3339Nano),
+				)
+				if a.notifier != nil {
+					a.notifier.Notify(job.ID)
+					a.notifier.Notify(job.PublicID)
+				}
+			}
+		} else {
+			// Final milestone: display_ready + completed terminal state in one transaction (PROG-02)
+			resultBytes, _ := json.Marshal(map[string]any{
+				"variants": summaries,
+			})
+
+			updatedJob, err := a.models.Jobs.MarkCompletedWithProgress(job.ID, json.RawMessage(resultBytes), stage, 3)
+			if err != nil {
+				a.logger.Error("failed to mark job completed", "job_id", job.ID, "error", err)
+				return
+			}
+
+			a.logger.Info("job terminal completion committed",
+				"job_id", job.ID.String(),
+				"public_id", job.PublicID.String(),
+				"version", updatedJob.Version,
+				"stage", updatedJob.Stage,
+				"variants_completed", updatedJob.VariantsCompleted,
+				"terminal_committed_at", updatedJob.TerminalCommittedAt,
+				"post_commit_time", time.Now().UTC().Format(time.RFC3339Nano),
+			)
+
+			if a.notifier != nil {
+				a.notifier.Notify(job.ID)
+				a.notifier.Notify(job.PublicID)
+			}
+		}
 	}
-
-	// 7. Mark the job completed only after all variants and metadata are verified available (IMG-03)
-	resultBytes, _ := json.Marshal(map[string]any{
-		"variants": summaries,
-	})
-
-	if err := a.models.Jobs.MarkCompleted(job.ID, json.RawMessage(resultBytes)); err != nil {
-		a.logger.Error("failed to mark job completed", "job_id", job.ID, "error", err)
-		return
-	}
-
-	a.logger.Info("worker successfully completed job",
-		"job_id", job.ID.String(),
-		"public_id", job.PublicID.String(),
-		"variants_count", len(summaries),
-	)
 }

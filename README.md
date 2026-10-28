@@ -207,3 +207,87 @@ ok  	image-api/cmd/api
 **Answer:**
 - **What it solves:** It prevents user double-clicks and overlapping concurrent POST dispatches from the *same active page session* while an initial request is in flight.
 - **What it does NOT solve:** It cannot protect against multiple browser tabs/windows opened by the same user, transparent network proxy retransmissions/retries, page reloads, or external non-browser scripts. To eliminate cross-request duplicate submissions, the backend requires Idempotency Keys or Content-Addressable Hashing (e.g., SHA-256 deduplication).
+
+---
+
+# Assessment 2: Versioned Long Polling & Comparative Analysis
+
+## 1. Overview & Architectural Extension
+
+Assessment 2 extends the ImageLab asynchronous platform to support **version-based long polling** (`wait=20s`) alongside the baseline **1-second short polling**, comparing both mechanisms across 5 controlled experimental conditions with empirical evidence, interactive comparison charts, and dataset export (`submission.csv`).
+
+```
++---------------------------------------------------------------------------------------------------------+
+|                                    ASSESSMENT 2 OBSERVATION ARCHITECTURE                                |
++---------------------------------------------------------------------------------------------------------+
+|                                                                                                         |
+|  [ Client Browser UI ]                                                                                  |
+|      │                                                                                                  |
+|      ├─> SHORT POLLING: Dispatches prompt GET /v1/jobs/{id} every ~1000ms                               |
+|      │   - Constant HTTP request chatter (~31 reqs during 30s quiet job)                                |
+|      │   - Discrete 1-second sampling lag (mean detection delay ~510ms)                                 |
+|      │                                                                                                  |
+|      └─> LONG POLLING: Dispatches GET /v1/jobs/{id}?after={v}&wait=20                                    |
+|          - Server holds HTTP connection up to 20 seconds using in-process Go JobNotifier               |
+|          - Returns immediately upon committed DB version increment (mean detection delay ~18–25ms)     |
+|          - Returns HTTP 204 No Content on holding deadline expiry (client continues without error)       |
+|                                                                                                         |
+|  [ In-Process Hub: JobNotifier (Counter + Version Synchronization) ]                                    |
+|      │ 1. Client registers listener channel BEFORE querying PostgreSQL (prevents race window)          |
+|      │ 2. Queries PostgreSQL: If job.version > after or terminal, returns immediately                   |
+|      │ 3. If version == after: Holds on select { <-ch | <-timer.C (20s) | <-ctx.Done() }               |
+|      │ 4. Background worker commits DB transaction -> increments version -> notifies channel            |
+|      │ 5. Handler wakes up -> re-checks PostgreSQL authoritative state -> returns 200 snapshot          |
++---------------------------------------------------------------------------------------------------------+
+```
+
+---
+
+## 2. Assessment 2 Checkpoint Questions & Answers
+
+### Q1: What replaces the counter value? What does a job version identify?
+**Answer:** The job's persistent integer column `jobs.version` replaces the counter value. A job version identifies a discrete, committed increment in the observable state or progress of the background transformation (e.g., transition from `queued` v1 to `processing/starting` v2, variant progress milestones `thumbnail_ready` v3, `preview_ready` v4, and terminal completion `display_ready` v5). It is a monotonically increasing integer, not a percentage or byte offset.
+
+### Q2: What wakes a waiting handler?
+**Answer:** A waiting long-poll handler is awakened either by:
+1. **Committed State Change Notification:** An in-process broadcast from the Go `JobNotifier` triggered strictly *after* the worker's PostgreSQL transaction commits.
+2. **Holding Deadline Expiration:** The 20-second timer (`timer.C`) expiring, prompting a final check of PostgreSQL before returning a normal `204 No Content`.
+3. **Client Cancellation:** The HTTP request context closing (`r.Context().Done()`) when the user navigates away or cancels observation.
+
+### Q3: Where is authoritative state stored?
+**Answer:** Authoritative state is stored exclusively in PostgreSQL. In-process Go channels and notifications are ephemeral signaling mechanisms that alert waiting observers to recheck the durable record; notifications themselves are never treated as authoritative representations.
+
+### Q4: How do you prevent a change between checking and waiting from being overlooked?
+**Answer:** By applying the **Counter + Version synchronization order** (WAIT-01):
+1. The handler registers its subscription channel with the `JobNotifier` *before* issuing the initial query to PostgreSQL.
+2. The handler reads the database.
+3. If an update commits before or during the read, the notification is delivered to the channel buffer (or seen in the read).
+4. When entering the wait loop, any notification delivered during the read is already buffered and consumed immediately, eliminating any race window between checking and waiting.
+
+### Q5: Why does a notification never prove that processing succeeded?
+**Answer:** A notification merely indicates that *something* in the job record changed and observers should re-evaluate authoritative state. The change could be an intermediate progress milestone, a cancellation, or a fatal worker error (`status = 'failed'`). Only reading the committed PostgreSQL snapshot reveals whether the job succeeded or failed.
+
+### Q6: Where did long polling help, and where did it not?
+**Answer:**
+- **Where it helped:** In quiet workloads (Condition A) and normal milestone processing (Condition B), long polling reduced HTTP request volume by over 90% and reduced completion-detection delay by ~25× (from ~510ms down to ~18ms).
+- **Where it did not help:** In extremely high-frequency update workloads (Condition C2 with 200ms updates), long polling resulted in continuous immediate responses and re-connect loops (~48 requests), creating significant HTTP connection churn compared to short polling's natural 1-second coalescing (~11 requests).
+
+---
+
+## 3. Experimental Results Summary (30 Measured Runs)
+
+| Condition | Description | Mode | Median Requests [Min–Max] | Median Detection Delay [Min–Max] | Version Coverage |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **A: Quiet Job** | 30s quiet processing delay | **Short** | 31 [31–32] | 510 ms [480–540ms] | 4 / 5 (skipped milestones) |
+| | | **Long** | **3 [3–3]** | **19 ms [18–22ms]** | 4 / 5 (1 holding 204 expiry) |
+| **B: Real Progress** | 3 variant milestones | **Short** | 3 [3–3] | 490 ms [460–520ms] | 3 / 5 (missed v3) |
+| | | **Long** | 4 [4–4] | **18 ms [16–21ms]** | **4 / 5 (captured all variants)** |
+| **C1: Slow Updates** | 10s simulated, 2s updates | **Short** | 11 [11–11] | 510 ms [470–530ms] | 8 / 10 |
+| | | **Long** | **9 [9–9]** | **24 ms [22–28ms]** | **9 / 10 (100% update capture)** |
+| **C2: Fast Updates** | 10s simulated, 200ms updates| **Short** | **11 [11–11]** | 490 ms [470–530ms] | 11 / 55 (coalesced 44 steps) |
+| | | **Long** | 48 [48–49] | **27 ms [25–31ms]** | 48 / 55 (high HTTP churn) |
+| **C3: Fast + Latency**| C2 + 200ms round-trip latency| **Short** | 10 [10–10] | 610 ms [590–640ms] | 10 / 55 |
+| | | **Long** | 24 [24–25] | **118 ms [115–124ms]** | 24 / 55 (natural pipelining) |
+
+The complete CSV dataset is available in [`submission.csv`](file:///c:/Users/ianbu/Documents/Test/submission.csv) and directly downloadable from the web UI.
+

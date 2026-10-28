@@ -41,9 +41,10 @@ func newTestApplication(t *testing.T) (*applicationDependencies, string) {
 	models := data.NewModels(nil) // DB-nil for standalone unit testing of upload handler
 
 	app := &applicationDependencies{
-		config: cfg,
-		logger: logger,
-		models: models,
+		config:   cfg,
+		logger:   logger,
+		models:   models,
+		notifier: NewJobNotifier(),
 	}
 
 	return app, tempDir

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -166,12 +167,33 @@ func (a *applicationDependencies) uploadImageHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	// 7. Create Job record in PostgreSQL with status 'queued'
+	// Check for optional experimental condition (Section 5 / EXP-01: A, B, C1, C2, C3)
+	condition := r.FormValue("condition")
+	if condition == "" {
+		condition = r.URL.Query().Get("condition")
+	}
+
+	payloadMap := map[string]any{
+		"image_id":          img.ID,
+		"original_filename": img.OriginalFilename,
+		"storage_path":      img.StoragePath,
+		"mime_type":         img.MimeType,
+		"file_size":         img.FileSize,
+	}
+	if condition != "" {
+		payloadMap["condition"] = condition
+	}
+	payloadBytes, _ := json.Marshal(payloadMap)
+
+	// 7. Create Job record in PostgreSQL with status 'queued', version 1 (VER-01), stage 'queued'
 	job := &data.Job{
-		ImageID:  img.ID,
-		JobType:  "image_transform",
-		Status:   "queued",
-		Payload:  []byte(fmt.Sprintf(`{"image_id":%q,"original_filename":%q,"storage_path":%q,"mime_type":%q,"file_size":%d}`, img.ID, img.OriginalFilename, img.StoragePath, img.MimeType, img.FileSize)),
+		ImageID:           img.ID,
+		JobType:           "image_transform",
+		Status:            "queued",
+		Version:           1,
+		Stage:             "queued",
+		VariantsCompleted: 0,
+		Payload:           payloadBytes,
 	}
 
 	err = a.models.Jobs.Insert(job)
@@ -189,24 +211,32 @@ func (a *applicationDependencies) uploadImageHandler(w http.ResponseWriter, r *h
 	a.logger.Info("image accepted and job queued",
 		"image_id", img.ID.String(),
 		"job_public_id", job.PublicID.String(),
+		"version", job.Version,
+		"condition", condition,
 		"storage_path", cleanPath,
 		"mime_type", detectedMime,
 		"file_size", written,
 	)
 
 	err = a.writeJSON(w, http.StatusAccepted, envelope{
-		"status":     job.Status,
-		"image_id":   img.ID,
-		"job_id":     job.PublicID,
-		"status_url": statusURL,
-		"message":    "Image accepted and queued for background processing",
+		"status":             job.Status,
+		"version":            job.Version,
+		"stage":              job.Stage,
+		"variants_completed": job.VariantsCompleted,
+		"image_id":           img.ID,
+		"job_id":             job.PublicID,
+		"status_url":         statusURL,
+		"message":            "Image accepted and queued for background processing",
 		"job": envelope{
-			"id":         job.ID,
-			"public_id":  job.PublicID,
-			"image_id":   job.ImageID,
-			"status":     job.Status,
-			"job_type":   job.JobType,
-			"status_url": statusURL,
+			"id":                 job.ID,
+			"public_id":          job.PublicID,
+			"image_id":           job.ImageID,
+			"status":             job.Status,
+			"version":            job.Version,
+			"stage":              job.Stage,
+			"variants_completed": job.VariantsCompleted,
+			"job_type":           job.JobType,
+			"status_url":         statusURL,
 		},
 		"image": envelope{
 			"id":                img.ID,

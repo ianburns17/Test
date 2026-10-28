@@ -39,11 +39,12 @@ type serverConfig struct {
 }
 
 type applicationDependencies struct {
-	config serverConfig
-	logger *slog.Logger
-	models data.Models
-	wg     sync.WaitGroup
-	dbMu   sync.Mutex
+	config   serverConfig
+	logger   *slog.Logger
+	models   data.Models
+	notifier *JobNotifier
+	wg       sync.WaitGroup
+	dbMu     sync.Mutex
 }
 
 func main() {
@@ -103,9 +104,10 @@ func main() {
 	}
 
 	app := &applicationDependencies{
-		config: cfg,
-		logger: logger,
-		models: models,
+		config:   cfg,
+		logger:   logger,
+		models:   models,
+		notifier: NewJobNotifier(),
 	}
 
 	// Start exactly one background worker goroutine inside the application process (WRK-01)
