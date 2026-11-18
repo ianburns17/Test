@@ -13,8 +13,11 @@ import (
 // - Non-blocking channel sends coalesce duplicate notifications safely.
 // - Deterministic unsubscribe cleans up channels and resources on exit/timeout/cancellation (WAIT-02).
 type JobNotifier struct {
-	mu          sync.RWMutex
-	subscribers map[uuid.UUID]map[chan struct{}]struct{}
+	mu            sync.RWMutex
+	subscribers   map[uuid.UUID]map[chan struct{}]struct{}
+	streamMu      sync.Mutex
+	activeStreams int
+	peakStreams   int
 }
 
 // NewJobNotifier creates and initializes a JobNotifier instance.
@@ -22,6 +25,41 @@ func NewJobNotifier() *JobNotifier {
 	return &JobNotifier{
 		subscribers: make(map[uuid.UUID]map[chan struct{}]struct{}),
 	}
+}
+
+// TrackStreamOpen increments the active SSE streams count and updates peak active streams.
+func (n *JobNotifier) TrackStreamOpen() (active int, peak int) {
+	n.streamMu.Lock()
+	defer n.streamMu.Unlock()
+	n.activeStreams++
+	if n.activeStreams > n.peakStreams {
+		n.peakStreams = n.activeStreams
+	}
+	return n.activeStreams, n.peakStreams
+}
+
+// TrackStreamClose decrements the active SSE streams count.
+func (n *JobNotifier) TrackStreamClose() int {
+	n.streamMu.Lock()
+	defer n.streamMu.Unlock()
+	if n.activeStreams > 0 {
+		n.activeStreams--
+	}
+	return n.activeStreams
+}
+
+// PeakActiveStreams returns the peak concurrent SSE streams observed.
+func (n *JobNotifier) PeakActiveStreams() int {
+	n.streamMu.Lock()
+	defer n.streamMu.Unlock()
+	return n.peakStreams
+}
+
+// ActiveStreams returns the current number of active SSE streams.
+func (n *JobNotifier) ActiveStreams() int {
+	n.streamMu.Lock()
+	defer n.streamMu.Unlock()
+	return n.activeStreams
 }
 
 // Subscribe registers a notification channel for the given job identifier (internal UUID or public UUID).

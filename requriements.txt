@@ -1,104 +1,161 @@
-ImageLab Version 2 Requirements
-Versioned long polling and progress observation
-Companion to Assessment 2 | Extension of the completed Version 1 application
-1 Purpose and existing contracts
-Add version-based long polling alongside the existing short polling. The browser observes work; the worker performs it; PostgreSQL owns the authoritative job. Existing image-processing knowledge is assumed.
-Keep POST /v1/images, the 202 response and Location header, local storage, one worker, and the original variant endpoints. Keep queued, processing, completed, and failed as the only job states. Preserve thumbnail 150 × 150 crop, preview within 800 × 600, and display within 1200 × 900 with preserved aspect ratios for preview and display.
-Version 1 requirements remain in force unless explicitly changed here. The new observation modes and progress fields replace the short-polling-only restriction. The assessment brief supplies experiment and submission requirements.
-2 Terms used in this specification
-Term
-Meaning
-Representation
-The job information returned in a response, including status, progress, version, and available result metadata.
-Version
-A positive integer that increases when the job’s observable information changes. It is not a percentage.
-Snapshot
-The current representation. It does not contain a history of every earlier change.
-Notification
-An in-process signal telling waiting observers to recheck persisted state.
-Holding deadline
-The maximum time the server waits for a newer version before returning a normal no-change response.
-Terminal state
-Completed or failed. No further worker progress updates are allowed.
+CMPS 4191  |  ADVANCED WEB TECHNOLOGIES
+ImageLab Version 3 Requirements
+Server-Sent Events for versioned job observation
+Companion to Assessment 3  |  Extension of the completed Version 2 application
+This specification defines the required behavior for adding Server-Sent Events (SSE) to ImageLab. The existing upload and image-processing system remains in place. Version 3 changes how the browser observes a job: in addition to short and long polling, it can keep one SSE response open and receive complete job snapshots as the job changes.
+CENTRAL CONTRACT
+The worker performs the image job and PostgreSQL stores authoritative job state. The SSE handler observes committed versions and sends snapshots over one open response. Losing that response stops observation; it does not stop the job.
+
+1. Existing contracts and scope
+Version 1 and Version 2 requirements remain in force unless this specification changes them. Preserve POST /v1/images, its 202 Accepted response and Location header, durable job creation, one in-process worker, local image storage, the queued / processing / completed / failed states, and all-or-complete availability of the three required variants.
+Keep short polling and version-based long polling working. Add SSE as a third observation mode. The required controlled comparison is SSE versus long polling. Do not rebuild image transformations or change their outputs.
+In scope
+Out of scope
+SSE endpoint, complete job snapshots, named events, flushing, lifecycle, reconnection, and cleanup.
+WebSockets, brokers, Redis, PostgreSQL LISTEN/NOTIFY, multiple workers, and multi-server fan-out.
+Committed job versions and in-process notification to all active observers.
+Durable event history, Last-Event-ID replay, exactly-once event delivery, and backend idempotency.
+Controlled comparison, reproducible logs, tables, graphs, and an in-class presentation.
+Claims about million-client capacity or production-scale capacity from this classroom experiment.
 
 
-3 Persistent version requirements
-VER-01 Create jobs at version 1. Backfill existing jobs with a valid initial version. Persist the version in PostgreSQL and return it in every successful job representation, including prompt short-poll responses.
-VER-02 Increment the version in the same database transaction as each observable status or progress change. Keep representation fields and version consistent. Reads, holding-deadline expirations, and duplicate notifications must not increment it.
-VER-03 Notify observers only after commit. All observers of the same job must be able to discover a change; a single shared channel receive that wakes only one observer is insufficient. Notifications may be coalesced because the database retains the latest snapshot.
-
-4 HTTP observation contract
-API-01 GET /v1/jobs/{id} without query parameters remains a prompt snapshot response. It must never wait for a change. Both modes return the same representation fields.
-API-02 GET /v1/jobs/{id}?after=7&wait=20 requests a snapshot newer than version 7, waiting up to 20 seconds. after is a nonnegative integer. wait is an integer from 1 to 20 seconds and defaults to 20 when after is supplied. Reject wait without after, malformed values, and out-of-range values with 400.
-Condition
-Required outcome
-Unknown job
-404 promptly.
-after exceeds current version
-400 promptly; do not wait for an impossible client position.
-Known terminal job and valid after
-200 with the terminal representation immediately, even when versions match.
-Current version is greater than after
-200 with the current representation immediately.
-Active job and versions match
-Hold the request until a committed change, holding deadline, or request cancellation.
-Holding deadline with no newer version
-204 No Content with no JSON body. Recheck authoritative state before choosing 204.
-Unexpected server or database failure
-Appropriate non-success response if a response is still possible; do not return 204 to disguise an error.
+2. Job snapshot and version requirements
+ID
+Requirement
+JOB-01
+PostgreSQL remains the authoritative source for every job representation sent through SSE.
+JOB-02
+Every client-visible job representation includes the existing fields and the persisted version, stage, and variants_completed. Completed snapshots include all three variants; failed snapshots include a safe error.
+JOB-03
+Increment version in the same database transaction as each client-visible state or progress change. This includes queued to processing even when variants_completed remains 0.
+JOB-04
+Persist each real variant and its metadata before publishing the corresponding progress version. Do not expose partial variants as completed.
+JOB-05
+Keep simulated progress in a separate field, label it as simulated, and disable it for ordinary use. A timer never transitions a job to completed.
+JOB-06
+Completed and failed are terminal. No progress update follows a terminal state.
 
 
-API-03 Use Cache-Control: no-store for observation responses. A 200 response is a complete JSON snapshot with the existing job fields plus version, stage, and variants_completed. Completed responses still include all three variants.
-Example active snapshot: id=42, image_id=108, status="processing", version=4, stage="preview_ready", variants_completed=2. Existing queued_at, started_at, and terminal timestamps remain part of the representation.
-5 Waiting and notification correctness
-WAIT-01 Reuse the Counter + Version waiting approach. Register or capture the change signal and check persisted state in a synchronized order that cannot miss a change between checking and waiting. After a wake-up, recheck the version; a signal alone is not a representation.
-WAIT-02 Wait without a busy loop. Release subscriptions, timers, and handler resources after every exit path. Request-context cancellation ends observation, not the worker’s job.
-WAIT-03 Ensure server write deadlines and any proxy deadline permit the 20-second hold plus response time. Set the browser request timeout to 30 seconds for the lab. A normal server 204 and an actual client timeout have different meanings.
+3. SSE HTTP and event-frame contract
+ID
+Requirement
+SSE-01
+Expose GET /v1/jobs/{id}/events for the browser EventSource API. Keep the existing prompt snapshot and long-poll endpoints available.
+SSE-02
+Return 404 for an unknown job before beginning a stream.
+SSE-03
+Set Content-Type: text/event-stream; charset=utf-8 and Cache-Control: no-cache before writing the response body. Disable intermediary buffering where the deployment proxy supports it.
+SSE-04
+On connection, send the current complete job snapshot immediately as a named job-update event.
+SSE-05
+After each newly observed committed version, send a complete current snapshot as a job-update event. The data is a snapshot, not a delta requiring earlier events.
+SSE-06
+End each event with a blank line and flush after writing it. Flush makes the frame available; it does not end or keep open the response.
+SSE-07
+Keep the handler and response open while the job is active and the request context remains active. End the server stream after sending a terminal snapshot or when the request ends.
+SSE-08
+Optionally send periodic SSE comment heartbeats on idle streams. A heartbeat is not a job-update event and does not change the job version.
+SSE-09
+Do not emit SSE id fields or claim Last-Event-ID replay in this version. The application version in the JSON snapshot is a state version, not an event-history cursor.
 
-6 Browser and progress requirements
-UI-01 Provide Short polling and Long polling controls. Show the selected mode, job ID, last observed version, status, and progress. Use the same rendering function for both modes.
-UI-02 Start observation after acceptance. Fetch an initial prompt snapshot, save its version, then use the chosen mode. Short polling remains approximately one second. Long polling sends after equal to the last successfully received version.
-UI-03 After a valid active 200, render and immediately send the next long poll. After 204, keep the last version and immediately send another long poll without parsing JSON. After completed or failed, render and stop.
-UI-04 Maintain at most one outstanding observation request per page. On a mode change or new observed job, cancel the old loop and ignore its late responses using an observation generation/token or equivalent guard. Switching modes must not submit another image.
-UI-05 On network failure, actual client timeout, non-success response other than the normal 204, or invalid JSON/representation, stop and preserve the last known state. Show Unable to check status and Try again. Try again observes the same job using the selected mode. Never infer worker failure from a retrieval error.
-7 Real image progress
-PROG-01 Add variants_completed from 0 to 3 and a stage describing current work. After each actual variant file and its metadata are stored, persist the new count and stage with a version increment, then notify. The status remains processing until all three outputs are available.
-PROG-02 Suggested stages are starting, thumbnail_ready, preview_ready, and display_ready. The last variant milestone and completed status may share one transaction and version increment. Do not invent a fifth job state for a stage.
-PROG-03 Display progress during processing without exposing partial results as a completed job. A failure keeps the last known progress but uses status failed and a safe error. No further progress updates follow terminal status.
-8 Experimental controls
-EXP-01 Implement disabled-by-default controls for the 30-second quiet delay and the 10-second simulated update phase. Record the configuration for every run and use it unchanged for both observation modes.
-EXP-02 Use a separate simulation_step or simulated_progress field for the timed phase. Label it Simulated progress in the UI; keep variants_completed truthful. Each simulated change increments the persisted version. Log actual commit times rather than assuming timers fire exactly on schedule.
-EXP-03 Complete the simulated phase before real transformations begin. Mark completed only after real image processing succeeds. Disable simulation when demonstrating ordinary ImageLab use.
 
-9 Acceptance checks
+Required frame shape: event: job-update, followed by data: and a JSON snapshot, followed by a blank line. The JSON version identifies the snapshot revision. It does not promise that every intermediate revision will be delivered.
+4. Synchronization and notification requirements
+ID
+Requirement
+SYNC-01
+Publish an in-process notification only after the database transaction containing the new job version commits.
+SYNC-02
+Notify every active observer of the job. A single shared channel receive that wakes only one observer is insufficient.
+SYNC-03
+Use a subscribe/read/wait order that cannot miss a job change between reading the current snapshot and waiting for the next notification.
+SYNC-04
+Treat a notification only as a signal to re-read PostgreSQL. Never construct an authoritative SSE payload from the signal alone.
+SYNC-05
+After waking, read the latest snapshot and send it only if its version is newer than the last version sent on this stream. Notifications may be coalesced, so version gaps are permitted.
+SYNC-06
+Release subscriber registrations and timers on every handler exit. Do not hold a mutex while waiting, querying the database, or writing to the network.
+SYNC-07
+Request cancellation ends the observer handler only. It must not cancel or fail the background image job.
+
+
+5. Browser behavior and lifecycle
+ID
+Requirement
+UI-01
+After accepting a job, provide a selectable SSE observation mode for that same job ID. Opening the stream must not submit another image.
+UI-02
+Create one EventSource for the selected job and listen for job-update events. Parse event.data as JSON and pass the snapshot to the same renderer used by short and long polling.
+UI-03
+Show an initial snapshot promptly, then update status, stage, version, and progress from later snapshots. Do not expose completed results before the terminal completed snapshot.
+UI-04
+On EventSource error, show a reconnecting/connection message. Do not mark the job failed. Keep the same EventSource object so browser reconnection can occur.
+UI-05
+When a reconnect opens a new GET, the server sends the latest snapshot. Do not create another job or upload the image again.
+UI-06
+On completed or failed, render the terminal snapshot and call EventSource.close() so the browser does not reconnect for a finished job.
+UI-07
+Provide a stop-observing control or equivalent cancellation path. Closing observation must leave the worker and job unchanged.
+UI-08
+If observation is explicitly resumed, open one new EventSource for the same job. The initial snapshot must recover the current display state.
+
+
+6. Measurement and visual evidence requirements
+Complete a paired comparison of SSE and long polling for three conditions with three repetitions per method: 18 runs total. Use the same input and transformation settings, one observer during measured runs, an empty worker queue at each start, and alternating method order. Keep the tab in the foreground and record the actual workload configuration.
+ID
+Requirement
+MEAS-01
+Run a 30-second quiet active interval with no client-visible progress, then complete real processing.
+MEAS-02
+Run ordinary image processing and publish real progress only after each variant and its metadata are stored.
+MEAS-03
+Run a labelled 10-second simulated progress phase with updates every 200 ms, then complete real processing. Keep simulated progress separate from variants_completed.
+MEAS-04
+Keep client and server logs sufficient to join each observer run by job ID and version. Log the actual server commit time and browser receipt time.
+MEAS-05
+Record observation GETs, SSE stream GETs, SSE job-update events, heartbeats separately, received versions, version gaps, processing duration, terminal detection delay, observer database reads if applicable, stream duration, and peak active SSE handler count.
+MEAS-06
+Submit a run-by-run table and a summary table containing every repetition and the median plus minimum-maximum range for each condition and method.
+MEAS-07
+Submit at least two graphs generated from the recorded measurements: observation GET count by condition and method, and completion-detection delay in milliseconds by condition and method.
+MEAS-08
+Graphs must show the individual repetitions and a summary, have meaningful titles, labelled axes with units, and a readable legend. Explain each graph alongside its table.
+MEAS-09
+Tables and graphs are both mandatory. A graph does not replace raw logs or tables, and a table does not replace a graph.
+MEAS-10
+Count HTTP requests and SSE streams, not TCP connection establishments. Do not infer total resource cost or large-scale capacity from request count alone.
+
+
+Recommended run columns: run_id, condition, mode, repetition, job_id, image, baseline_version, terminal_version, observation_gets, sse_stream_gets, job_events_received, heartbeats, versions_received, version_gaps, processing_ms, detection_ms, observation_db_reads, stream_seconds, peak_active_streams, notes.
+7. Acceptance checks
 Check
-Required evidence
-Baseline preserved
-One-second short polling still works with the existing upload, worker, and results.
-Old version
-A request with an older version returns promptly with a consistent newer snapshot.
-Wait and notify
-An unchanged active job holds a request; a committed update releases it.
-Change between requests
-Produce an update before the next request arrives; the next request returns the newer snapshot immediately.
-No change
-An unchanged request returns 204 at the holding deadline; the next begins without an error or JSON parsing failure.
-Two observers
-Two tabs observing the same job both discover a change. This is a correctness check outside the single-observer experiment.
-Terminal stop
-Both completed and failed stop observation. Reopening an existing terminal job returns promptly.
-Cancellation and switching
-Old observation stops and late responses are ignored; worker progress continues.
-Retrieval failure
-A disconnected observation preserves state; Try again observes the same job without POST.
-Progress and simulation
-Real counts match stored variants; simulation is labelled, repeatable, and disabled for normal operation.
-Measured comparison
-Required runs, timestamp method, raw logs, charts, and evidence-backed report are included.
+Pass evidence
+Initial stream snapshot
+Opening SSE for an active job returns its current version and remains pending.
+Committed update
+A worker commit produces a newer snapshot in every observing tab.
+No missed change
+An update occurring around subscription or reconnection is available in the next snapshot.
+No false progress
+queued to processing advances version even when variants_completed remains zero; simulated progress is not counted as a stored variant.
+Version coalescing
+A delayed observer may skip intermediate versions but receives a current snapshot, including the terminal version.
+Disconnect
+The SSE handler unsubscribes; the worker continues; EventSource reconnects and receives the latest snapshot.
+Terminal state
+Completed and failed snapshots render once, the client closes EventSource, and no further reconnect is made.
+Multiple observers
+Two tabs both receive updates for one job.
+Comparison evidence
+All 18 runs are accounted for; tables and both required graphs agree with the raw records.
 
 
-10 Interpretation and definition of done
-A version gap shows that intermediate snapshots were not received. It does not, by itself, prove that the final result or stored data was lost. This API returns current state and does not promise replay of every event.
-Fewer browser requests do not establish lower total resource use. Describe held handlers, notification bookkeeping, and any database polling. A new long-poll request does not necessarily create a new TCP connection; HTTP can reuse connections.
-Version 2 is complete when both modes work against the same durable jobs, lifecycle checks pass, progress is truthful, and the comparison is reproducible. Your explanation must connect observed request behavior to your recommendation and identify what a continuing response could change.
-Further reading after completing predictions: RFC 6202, sections 2 and 3, https://www.rfc-editor.org/rfc/rfc6202.html. This is supporting material; the assessment does not require implementing HTTP streaming.
+8. Student explanation and presentation
+Each student or project team will present the implementation and findings in class. The presentation must show the request/event lifecycle, a live or recorded DevTools trace, both required graphs, the measurement tables, and an evidence-based interpretation. Students must explain why fewer HTTP requests do not by themselves prove lower total resource use.
+What does the GET open, and what does Flush do?
+How do workers, PostgreSQL versions, notifications, SSE handlers, and browser listeners fit together?
+What does a disconnect change, and what remains active?
+Why does this specification recover a snapshot instead of replaying all missed events?
+What do the tables and graphs show, and what limitations remain?
+9. Definition of done
+Version 3 is complete when ImageLab preserves its Version 2 contracts, sends correct versioned snapshots through SSE to all active observers, handles disconnects and terminal states without confusing observation with job execution, passes the acceptance checks, and produces reproducible comparison evidence in both tables and graphs for the in-class presentation.

@@ -148,8 +148,8 @@ func (a *applicationDependencies) executeImageJob(job *data.Job) {
 		}
 	}
 
-	// Condition C2 & C3: Fast updates (10-second simulated phase with updates every 200 ms -> 50 steps) (EXP-01, EXP-02, EXP-03)
-	if condition == "C2" || condition == "C3" {
+	// Condition C (Assessment 3) & C2/C3: Fast updates (10-second simulated phase with updates every 200 ms -> 50 steps) (MEAS-03)
+	if condition == "C" || condition == "C2" || condition == "C3" {
 		a.logger.Info(fmt.Sprintf("Condition %s [Fast updates]: starting 10s simulated phase (50 updates, 200ms apart)", condition), "job_id", job.ID.String())
 		for step := 1; step <= 50; step++ {
 			time.Sleep(200 * time.Millisecond)

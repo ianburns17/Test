@@ -120,7 +120,7 @@ func main() {
 		Handler:      app.routes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 0, // Disabled at server level to support persistent SSE streams & long-polling holding deadlines
 		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 	}
 

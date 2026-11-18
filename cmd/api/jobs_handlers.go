@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -283,6 +284,171 @@ func (a *applicationDependencies) getJobHandler(w http.ResponseWriter, r *http.R
 				return
 			}
 			// If versions still match (e.g. duplicate notification), keep waiting until deadline or next change
+		}
+	}
+}
+
+// getJobEventsHandler implements the Server-Sent Events (SSE) route (SSE-01 through SSE-09, SYNC-01 through SYNC-07).
+// Route: GET /v1/jobs/{id}/events
+func (a *applicationDependencies) getJobEventsHandler(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		a.serverErrorResponse(w, r, errors.New("streaming unsupported on server connection"))
+		return
+	}
+
+	if a.models.Jobs.DB == nil {
+		a.tryConnectDB()
+	}
+	if a.models.Jobs.DB == nil {
+		a.serverErrorResponse(w, r, errors.New("database connection is not available"))
+		return
+	}
+
+	params := httprouter.ParamsFromContext(r.Context())
+	idStr := params.ByName("id")
+
+	parsedUUID, err := uuid.Parse(idStr)
+	if err != nil {
+		a.badRequestResponse(w, r, errors.New("invalid job identifier"))
+		return
+	}
+
+	// SYNC-03: Subscribe BEFORE checking PostgreSQL to prevent race conditions between reading and waiting.
+	ch, unsubscribe := a.notifier.Subscribe(parsedUUID)
+	defer unsubscribe()
+
+	// SSE-02: Return 404 for an unknown job before beginning a stream.
+	job, err := a.fetchJob(parsedUUID)
+	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			a.notFoundResponse(w, r)
+			return
+		}
+		a.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// If client requested via public_id, also subscribe to internal job.ID
+	var chInternal <-chan struct{}
+	if job.ID != parsedUUID {
+		var unsubInternal func()
+		chInternal, unsubInternal = a.notifier.Subscribe(job.ID)
+		defer unsubInternal()
+	}
+
+	// SSE-03: Set headers before writing response body.
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	// Disable write deadline on the connection so long-lived streams are not prematurely timed out.
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+
+	// Track active SSE stream telemetry (MEAS-05)
+	activeStreams, peakStreams := a.notifier.TrackStreamOpen()
+	defer a.notifier.TrackStreamClose()
+	streamStart := time.Now()
+
+	a.logger.Info("SSE stream opened",
+		"job_id", parsedUUID.String(),
+		"version", job.Version,
+		"active_streams", activeStreams,
+		"peak_streams", peakStreams,
+	)
+	defer func() {
+		a.logger.Info("SSE stream closed",
+			"job_id", parsedUUID.String(),
+			"duration_ms", time.Since(streamStart).Milliseconds(),
+			"remaining_streams", a.notifier.ActiveStreams(),
+		)
+	}()
+
+	// SSE-04 & SSE-06: Send initial complete snapshot immediately as named job-update event, followed by blank line and flush.
+	resp := a.buildJobResponse(job)
+	jsonBytes, err := json.Marshal(resp)
+	if err != nil {
+		a.serverErrorResponse(w, r, err)
+		return
+	}
+
+	fmt.Fprintf(w, "event: job-update\ndata: %s\n\n", jsonBytes)
+	flusher.Flush()
+	lastSentVersion := job.Version
+
+	// SSE-07: If job is already in a terminal state on connection, end stream immediately after initial snapshot.
+	if job.Status == "completed" || job.Status == "failed" {
+		return
+	}
+
+	// SSE-08: Heartbeat ticker on idle streams (every 15 seconds)
+	heartbeatTicker := time.NewTicker(15 * time.Second)
+	defer heartbeatTicker.Stop()
+
+	// Stream loop: wait for notifications, context cancellation, or heartbeats
+	for {
+		select {
+		case <-r.Context().Done():
+			// SYNC-07: Request cancellation ends observer handler only; must NOT cancel or fail background image job.
+			return
+
+		case <-heartbeatTicker.C:
+			// SSE-08: Periodic comment heartbeat. Does not change version or emit job-update event.
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
+
+		case <-ch:
+			// SYNC-04: Treat notification only as a signal to re-read PostgreSQL.
+			job, err = a.fetchJob(parsedUUID)
+			if err != nil {
+				a.logger.Error("failed to fetch job during SSE update", "error", err)
+				return
+			}
+
+			// SYNC-05: Send snapshot only if version is newer than last sent, or if terminal state reached.
+			if job.Version > lastSentVersion || job.Status == "completed" || job.Status == "failed" {
+				resp = a.buildJobResponse(job)
+				jsonBytes, err = json.Marshal(resp)
+				if err != nil {
+					return
+				}
+
+				// SSE-05 & SSE-06: Complete named frame ending with blank line and flush
+				fmt.Fprintf(w, "event: job-update\ndata: %s\n\n", jsonBytes)
+				flusher.Flush()
+				lastSentVersion = job.Version
+
+				// SSE-07: End server stream after sending a terminal snapshot
+				if job.Status == "completed" || job.Status == "failed" {
+					return
+				}
+			}
+
+		case <-chInternal:
+			// Woken by internal job ID signal
+			job, err = a.fetchJob(parsedUUID)
+			if err != nil {
+				a.logger.Error("failed to fetch job during SSE update", "error", err)
+				return
+			}
+
+			if job.Version > lastSentVersion || job.Status == "completed" || job.Status == "failed" {
+				resp = a.buildJobResponse(job)
+				jsonBytes, err = json.Marshal(resp)
+				if err != nil {
+					return
+				}
+
+				fmt.Fprintf(w, "event: job-update\ndata: %s\n\n", jsonBytes)
+				flusher.Flush()
+				lastSentVersion = job.Version
+
+				if job.Status == "completed" || job.Status == "failed" {
+					return
+				}
+			}
 		}
 	}
 }

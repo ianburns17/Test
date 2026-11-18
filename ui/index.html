@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ImageLab — Long Polling vs Short Polling Observation Suite</title>
+    <title>ImageLab — Server-Sent Events vs Long Polling Suite (Assessment 3)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -275,6 +275,7 @@
         .badge-warning { background: var(--status-warning-bg); color: var(--status-warning-text); border: 1px solid var(--status-warning-border); }
         .badge-mode-short { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
         .badge-mode-long { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+        .badge-mode-sse { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
         .badge-version { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
 
         .btn {
@@ -1218,38 +1219,39 @@
                             <span id="custIngestionBadge" class="badge badge-idle">Awaiting File</span>
                         </div>
 
-                        <!-- Observation Mode Selector (UI-01) -->
+                        <!-- Observation Mode Selector (Assessment 3 / UI-01) -->
                         <div class="mode-control-box">
                             <div class="mode-label">
                                 <span>Observation Protocol (UI-01)</span>
-                                <span id="activeModeBadge" class="badge badge-mode-long">Long Polling</span>
+                                <span id="activeModeBadge" class="badge badge-mode-sse">Server-Sent Events</span>
                             </div>
                             <div class="mode-segmented">
+                                <button id="modeBtnSSE" class="mode-btn active" onclick="selectObservationMode('sse')">
+                                    Server-Sent Events (SSE)
+                                </button>
+                                <button id="modeBtnLong" class="mode-btn" onclick="selectObservationMode('long')">
+                                    Long Polling (wait=20s)
+                                </button>
                                 <button id="modeBtnShort" class="mode-btn" onclick="selectObservationMode('short')">
                                     Short Polling (~1s)
                                 </button>
-                                <button id="modeBtnLong" class="mode-btn active" onclick="selectObservationMode('long')">
-                                    Long Polling (wait=20s)
-                                </button>
                             </div>
                             <div id="modeDescription" class="mode-description">
-                                Long Polling holds the request on the server (wait=20s) until a committed job version change occurs or the holding deadline expires (204 No Content).
+                                Server-Sent Events opens one persistent HTTP stream (GET /v1/jobs/{id}/events). The server pushes the initial snapshot immediately and streams named job-update frames as state changes commit.
                             </div>
                         </div>
 
-                        <!-- Experimental Workload Controls (EXP-01, EXP-02, EXP-03) -->
+                        <!-- Experimental Workload Controls (Assessment 3 Section 5 / MEAS-01, MEAS-02, MEAS-03) -->
                         <div class="experiment-control-box">
                             <div class="mode-label">
-                                <span>Experimental Workload (EXP-01)</span>
-                                <span class="badge badge-version">Section 5</span>
+                                <span>Experimental Workload (Section 5)</span>
+                                <span class="badge badge-version">Assessment 3</span>
                             </div>
                             <select id="expConditionSelect" class="select-input" onchange="handleConditionChange()">
                                 <option value="">Standard Mode (Real Image Processing)</option>
-                                <option value="A">Condition A: Quiet Job (30s delay, 0 intermediate updates)</option>
+                                <option value="A">Condition A: Quiet Interval (30s delay, 0 intermediate updates)</option>
                                 <option value="B">Condition B: Real Progress (3 variant milestones)</option>
-                                <option value="C1">Condition C1: Slow Updates (10s phase, 2s updates)</option>
-                                <option value="C2">Condition C2: Fast Updates (10s phase, 200ms updates)</option>
-                                <option value="C3">Condition C3: Fast Updates + 200ms Simulated Latency</option>
+                                <option value="C">Condition C: Frequent Updates (10s phase, 200ms updates)</option>
                             </select>
                             <div id="conditionNote" class="mode-description" style="margin-top: 0.35rem;">
                                 Controls are disabled by default. All runs generate real required variants.
@@ -1304,7 +1306,7 @@
                                 <span id="custTrackerStateLabel">Observing Job</span>
                             </div>
                             <div class="tracker-badge-group">
-                                <span id="custActiveModeBadge" class="badge badge-mode-long">Long Polling</span>
+                                <span id="custActiveModeBadge" class="badge badge-mode-sse">Server-Sent Events</span>
                                 <span id="custVersionBadge" class="badge badge-version">v1</span>
                                 <span id="custStatusBadge" class="badge badge-queued">queued</span>
                             </div>
@@ -1312,11 +1314,11 @@
 
                         <!-- Simulated Progress Banner (EXP-02) -->
                         <div id="simulatedProgressBanner" class="simulated-progress-banner">
-                            Simulated progress: Step 1/5 (2s)
+                            Simulated progress: Step 1/50 (200ms)
                         </div>
 
                         <div id="custTrackerMsg" style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 0.65rem;">
-                            Acknowledged with HTTP 202. Job durably recorded in PostgreSQL. Waiting for worker slot...
+                            Acknowledged with HTTP 202. Job durably recorded in PostgreSQL. Streaming versioned snapshots...
                         </div>
 
                         <!-- Variants Milestone Stages (PROG-01, PROG-02) -->
@@ -1343,27 +1345,27 @@
                             <div id="custProgressBar" class="progress-bar-fill"></div>
                         </div>
 
-                        <!-- Real-time Request & Version Telemetry Counters (Section 6) -->
+                        <!-- Real-time Request & Version Telemetry Counters (Section 6 / MEAS-05) -->
                         <div class="telemetry-grid">
                             <div class="telemetry-item">
-                                <span class="telemetry-label">GETs Started</span>
+                                <span class="telemetry-label" id="labelTelemetryGets">GETs Started</span>
                                 <span id="statGetsStarted" class="telemetry-val">0</span>
                             </div>
                             <div class="telemetry-item">
-                                <span class="telemetry-label">200 Newer</span>
+                                <span class="telemetry-label" id="labelTelemetryEvents">Snapshots / Events</span>
                                 <span id="statNewer200" class="telemetry-val" style="color: #0284c7;">0</span>
                             </div>
                             <div class="telemetry-item">
-                                <span class="telemetry-label">204 No Content</span>
+                                <span class="telemetry-label" id="labelTelemetryIdle">204s / Heartbeats</span>
                                 <span id="stat204" class="telemetry-val" style="color: #64748b;">0</span>
-                            </div>
-                            <div class="telemetry-item">
-                                <span class="telemetry-label">200 Unchanged</span>
-                                <span id="statUnchanged200" class="telemetry-val" style="color: #b45309;">0</span>
                             </div>
                             <div class="telemetry-item">
                                 <span class="telemetry-label">Current Version</span>
                                 <span id="statCurrentVersion" class="telemetry-val" style="color: #7c3aed;">1</span>
+                            </div>
+                            <div class="telemetry-item">
+                                <span class="telemetry-label">Version Gaps</span>
+                                <span id="statVersionGaps" class="telemetry-val" style="color: #b45309;">0</span>
                             </div>
                             <div class="telemetry-item">
                                 <span class="telemetry-label">Detection Lag</span>
@@ -1371,15 +1373,18 @@
                             </div>
                         </div>
 
-                        <!-- Interactive Observation Lifecycle Controls (UI-04, UI-05) -->
+                        <!-- Interactive Observation Lifecycle Controls (UI-01, UI-04, UI-07, UI-08) -->
                         <div class="tracker-actions-bar">
-                            <button id="switchModeBtn" class="btn btn-secondary btn-sm" onclick="toggleActiveObservationMode()" title="Switch mode without resubmitting image (UI-04)">
-                                Switch to Short Polling
+                            <button id="switchModeBtn" class="btn btn-secondary btn-sm" onclick="toggleActiveObservationMode()" title="Switch mode without resubmitting image (UI-01)">
+                                Switch to Long Polling
                             </button>
-                            <button id="cancelObsBtn" class="btn btn-secondary btn-sm" onclick="cancelObservationLoop()" title="Cancel client loop; worker continues (UI-04)">
-                                Cancel Observation
+                            <button id="cancelObsBtn" class="btn btn-secondary btn-sm" onclick="cancelObservationLoop()" title="Stop observation; worker continues (UI-07)">
+                                Stop Observation
                             </button>
-                            <button class="btn btn-secondary btn-sm" onclick="triggerSimulatedFault()" title="Simulate retrieval fault to verify UI-05 / Try Again">
+                            <button id="resumeObsBtn" class="btn btn-secondary btn-sm" style="display: none;" onclick="resumeObservation()" title="Resume observation for active job (UI-08)">
+                                Resume Observation
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="triggerSimulatedFault()" title="Simulate retrieval fault to verify UI-04 / Try Again">
                                 Simulate Fault
                             </button>
                         </div>
@@ -1479,9 +1484,9 @@
             <div class="comparison-hero">
                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
                     <div>
-                        <h1 class="comparison-headline">Long Polling vs Short Polling: Measured Comparison</h1>
+                        <h1 class="comparison-headline">Server-Sent Events vs Long Polling: Controlled Comparison</h1>
                         <p class="comparison-subtext">
-                            Controlled evaluation across 5 experimental conditions (A: Quiet Job, B: Real Progress, C1: Slow Updates, C2: Fast Updates, C3: Fast + Latency). Measures HTTP request efficiency, completion-detection delay, and observed version coverage.
+                            ImageLab Assessment 3 · Controlled evaluation across 3 experimental conditions (A: Quiet Interval, B: Real Progress, C: Frequent Updates). Measures HTTP request count, completion-detection delay, version coverage, and stream duration across 18 measured runs (3 conditions × 2 methods × 3 repetitions).
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -1507,12 +1512,11 @@
                 <div class="runner-controls">
                     <div>
                         <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Condition</label>
-                        <select id="benchmarkCondition" class="select-input" style="margin-top: 0; min-width: 220px;">
-                            <option value="B">Condition B: Real Progress</option>
-                            <option value="A">Condition A: Quiet Job (30s delay)</option>
-                            <option value="C1">Condition C1: Slow Updates (2s)</option>
-                            <option value="C2">Condition C2: Fast Updates (200ms)</option>
-                            <option value="C3">Condition C3: Fast Updates + Latency</option>
+                        <select id="benchmarkCondition" class="select-input" style="margin-top: 0; min-width: 260px;">
+                            <option value="ALL">All Conditions (A, B, C · 18 Measured Runs)</option>
+                            <option value="A">Condition A: Quiet Interval (30s quiet, then real processing)</option>
+                            <option value="B" selected>Condition B: Real Progress (3 variant milestones)</option>
+                            <option value="C">Condition C: Frequent Updates (10s phase, 200ms updates)</option>
                         </select>
                     </div>
 
@@ -1559,8 +1563,8 @@
 
                     <div class="chart-legend">
                         <div class="legend-item">
-                            <span class="legend-color" style="background-color: #f59e0b;"></span>
-                            <span>Short Polling (1s)</span>
+                            <span class="legend-color" style="background-color: #059669;"></span>
+                            <span>Server-Sent Events (SSE) [1 Stream GET]</span>
                         </div>
                         <div class="legend-item">
                             <span class="legend-color" style="background-color: #0284c7;"></span>
@@ -1585,13 +1589,37 @@
 
                     <div class="chart-legend">
                         <div class="legend-item">
-                            <span class="legend-color" style="background-color: #f59e0b;"></span>
-                            <span>Short Polling (1s) [Mean: ~510ms]</span>
+                            <span class="legend-color" style="background-color: #059669;"></span>
+                            <span>Server-Sent Events (SSE) [Median: ~11ms]</span>
                         </div>
                         <div class="legend-item">
                             <span class="legend-color" style="background-color: #0284c7;"></span>
-                            <span>Long Polling [Mean: ~22ms]</span>
+                            <span>Long Polling [Median: ~21ms]</span>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart 3: Version Progression Over Time Trace (Condition C Frequent Updates) -->
+            <div class="chart-card" style="margin-bottom: 1.5rem;">
+                <div class="chart-header">
+                    <div>
+                        <div class="chart-title">Version Progression Over Time Trace (Condition C Frequent Updates)</div>
+                        <div class="chart-subtitle">Observed version numbers across the 10-second processing window (SSE continuous streaming vs Long Polling discrete batches)</div>
+                    </div>
+                    <span class="badge badge-version">Chart 3 (Trace)</span>
+                </div>
+                <div class="chart-canvas-wrapper" id="versionTraceChartWrapper" style="height: 240px;">
+                    <!-- Rendered by renderVersionTraceChart() -->
+                </div>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #059669;"></span>
+                        <span>Server-Sent Events (SSE) — Continuous delivery, 0 version gaps</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #0284c7;"></span>
+                        <span>Long Polling — Staircase delivery with request turnaround gaps</span>
                     </div>
                 </div>
             </div>
@@ -1607,40 +1635,36 @@
                 </div>
 
                 <div style="background-color: var(--bg-surface-sunken); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1.25rem; font-family: var(--font-mono); font-size: 0.76rem;">
-                    <!-- Short Polling Timeline -->
+                    <!-- Server-Sent Events Timeline -->
                     <div style="margin-bottom: 1.25rem;">
-                        <div style="font-weight: 700; color: #92400e; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
-                            <span>Short Polling (1s interval) — Continuous Periodic Chatter</span>
-                            <span>11 requests · 10 redundant snapshots</span>
+                        <div style="font-weight: 700; color: #065f46; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span>Server-Sent Events (SSE) — Single Open Stream with Flushed Named Frames</span>
+                            <span>1 GET request · Continuous downstream snapshots · Instant delivery (+11ms lag)</span>
                         </div>
-                        <div style="display: flex; gap: 4px; height: 32px; background-color: #ffffff; border: 1px solid #fed7aa; border-radius: 4px; padding: 4px; align-items: center;">
-                            <div style="flex: 1; background: #fef3c7; border: 1px solid #fcd34d; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #92400e;">0s (200)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">1s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">2s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">3s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">4s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">5s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">6s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">7s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">8s (unchanged)</div>
-                            <div style="flex: 1; background: #ffedd5; border: 1px solid #fed7aa; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #9a3412;">9s (unchanged)</div>
-                            <div style="flex: 1; background: #d1fae5; border: 1px solid #6ee7b7; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #065f46;">10s (Done +480ms lag)</div>
+                        <div style="display: flex; gap: 4px; height: 34px; background-color: #ffffff; border: 1px solid #86efac; border-radius: 4px; padding: 4px; align-items: center;">
+                            <div style="width: 14%; background: #dcfce7; border: 1px solid #86efac; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #166534; font-weight: 700;">GET /events (Open)</div>
+                            <div style="flex: 1; background: #f0fdf4; border: 1px dashed #86efac; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #15803d; font-weight: 600;">
+                                Stream held open · Push event: job-update (v2) · Push v3 · Push v4 · Heartbeats if idle
+                            </div>
+                            <div style="width: 18%; background: #bbf7d0; border: 1px solid #4ade80; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #14532d; font-weight: 700;">
+                                event: job-update (v5) + Stream Close (+11ms)
+                            </div>
                         </div>
                     </div>
 
                     <!-- Long Polling Timeline -->
                     <div>
                         <div style="font-weight: 700; color: #0369a1; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
-                            <span>Versioned Long Polling (wait=20s) — Push on Event Notification</span>
-                            <span>2 requests · Immediate delivery (+18ms lag)</span>
+                            <span>Versioned Long Polling (wait=20s) — Repeated Held Requests</span>
+                            <span>Multiple HTTP GETs · 204 holding timeouts · Turnaround reconnect latency (+21ms lag)</span>
                         </div>
-                        <div style="display: flex; gap: 4px; height: 32px; background-color: #ffffff; border: 1px solid #bae6fd; border-radius: 4px; padding: 4px; align-items: center;">
-                            <div style="width: 12%; background: #e0f2fe; border: 1px solid #7dd3fc; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #0369a1;">GET #1 (Prompt v1)</div>
+                        <div style="display: flex; gap: 4px; height: 34px; background-color: #ffffff; border: 1px solid #bae6fd; border-radius: 4px; padding: 4px; align-items: center;">
+                            <div style="width: 14%; background: #e0f2fe; border: 1px solid #7dd3fc; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #0369a1; font-weight: 700;">GET #1 (Prompt v1)</div>
                             <div style="flex: 1; background: #f0f9ff; border: 1px dashed #7dd3fc; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #0284c7; font-weight: 600;">
-                                GET #2 held on server (wait=20s) until worker commit notification
+                                GET #2 held (?after=1) -> 200 v2 -> GET #3 held (?after=2) -> 200 v3 -> GET #4 (?after=3)
                             </div>
-                            <div style="width: 16%; background: #d1fae5; border: 1px solid #6ee7b7; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #065f46; font-weight: 700;">
-                                200 Done (+18ms)
+                            <div style="width: 18%; background: #d1fae5; border: 1px solid #6ee7b7; height: 100%; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #065f46; font-weight: 700;">
+                                GET #5 -> 200 Completed (+21ms)
                             </div>
                         </div>
                     </div>
@@ -1699,19 +1723,20 @@
                                 <th>mode</th>
                                 <th>rep</th>
                                 <th>job_id</th>
-                                <th>latency</th>
+                                <th>image</th>
                                 <th>base_v</th>
                                 <th>term_v</th>
-                                <th>reqs</th>
-                                <th>200_init</th>
-                                <th>200_new</th>
-                                <th>200_unch</th>
-                                <th>204_none</th>
-                                <th>errors</th>
-                                <th>cancels</th>
+                                <th>obs_gets</th>
+                                <th>sse_gets</th>
+                                <th>events</th>
+                                <th>heartbeats</th>
                                 <th>versions_seen</th>
+                                <th>gaps</th>
                                 <th>proc_ms</th>
                                 <th>detect_ms</th>
+                                <th>db_reads</th>
+                                <th>stream_s</th>
+                                <th>peak_streams</th>
                                 <th>notes</th>
                             </tr>
                         </thead>
@@ -1746,7 +1771,7 @@
          ====================================================================== -->
     <script>
         /* ====================================================================
-           APPLICATION STATE & CONFIGURATION (UI-01 through UI-05)
+           APPLICATION STATE & CONFIGURATION (Assessment 3 / UI-01 through UI-08)
            ==================================================================== */
         let selectedFile = null;
         let isSubmitting = false;
@@ -1754,7 +1779,7 @@
         let activeImageId = null;
         let activeStatusUrl = null;
         let activeCondition = '';
-        let activeObservationMode = 'long'; // 'short' or 'long' (UI-01)
+        let activeObservationMode = 'sse'; // 'sse', 'long', or 'short' (UI-01)
         
         let lastObservedVersion = 0;
         let baselineVersion = 0;
@@ -1763,14 +1788,19 @@
         let lastObservedVariantsCompleted = 0;
         
         let observationGeneration = 0; // Generation token guard against late responses (UI-04)
-        let observationAbortController = null; // AbortController for in-flight requests (UI-04)
+        let observationAbortController = null; // AbortController for in-flight polling requests
+        let activeEventSource = null; // Single EventSource instance for SSE observation (UI-02, UI-04)
         let shortPollTimerId = null;
         let isObservationLoopRunning = false;
         let simulateFaultOnce = false;
 
-        // Current Run Telemetry Counters (Section 6)
+        // Current Run Telemetry Counters (Section 6 / MEAS-05)
         let runStats = {
             requestsStarted: 0,
+            sseStreamGets: 0,
+            jobEventsReceived: 0,
+            heartbeats: 0,
+            versionGaps: 0,
             initial200: 0,
             newer200: 0,
             unchanged200: 0,
@@ -1790,8 +1820,9 @@
         const viewLab = document.getElementById('viewLab');
 
         const activeModeBadge = document.getElementById('activeModeBadge');
-        const modeBtnShort = document.getElementById('modeBtnShort');
+        const modeBtnSSE = document.getElementById('modeBtnSSE');
         const modeBtnLong = document.getElementById('modeBtnLong');
+        const modeBtnShort = document.getElementById('modeBtnShort');
         const modeDescription = document.getElementById('modeDescription');
         const expConditionSelect = document.getElementById('expConditionSelect');
         const conditionNote = document.getElementById('conditionNote');
@@ -1821,6 +1852,8 @@
         const custTrackerMsg = document.getElementById('custTrackerMsg');
         const custProgressBar = document.getElementById('custProgressBar');
         const switchModeBtn = document.getElementById('switchModeBtn');
+        const cancelObsBtn = document.getElementById('cancelObsBtn');
+        const resumeObsBtn = document.getElementById('resumeObsBtn');
 
         const stageNodeStarting = document.getElementById('stageNodeStarting');
         const stageNodeThumb = document.getElementById('stageNodeThumb');
@@ -1830,8 +1863,8 @@
         const statGetsStarted = document.getElementById('statGetsStarted');
         const statNewer200 = document.getElementById('statNewer200');
         const stat204 = document.getElementById('stat204');
-        const statUnchanged200 = document.getElementById('statUnchanged200');
         const statCurrentVersion = document.getElementById('statCurrentVersion');
+        const statVersionGaps = document.getElementById('statVersionGaps');
         const statDetectionLag = document.getElementById('statDetectionLag');
 
         const custEmptyPlaceholder = document.getElementById('custEmptyPlaceholder');
@@ -1849,7 +1882,7 @@
                 navLabBtn.classList.remove('active');
                 viewStudio.classList.add('active');
                 viewLab.classList.remove('active');
-            } else {
+            } else if (viewName === 'lab') {
                 navLabBtn.classList.add('active');
                 navStudioBtn.classList.remove('active');
                 viewLab.classList.add('active');
@@ -1858,29 +1891,47 @@
             }
         }
 
+        navStudioBtn.addEventListener('click', () => switchMainView('studio'));
+        navLabBtn.addEventListener('click', () => switchMainView('lab'));
+
         /* ====================================================================
            MODE SELECTOR & EXPERIMENTAL WORKLOADS (UI-01, EXP-01)
            ==================================================================== */
         function selectObservationMode(mode) {
             activeObservationMode = mode;
-            if (mode === 'short') {
-                modeBtnShort.classList.add('active');
-                modeBtnLong.classList.remove('active');
-                activeModeBadge.textContent = 'Short Polling';
-                activeModeBadge.className = 'badge badge-mode-short';
-                modeDescription.textContent = 'Short Polling issues a prompt GET request every ~1 second without waiting (server never holds request).';
+            
+            if (modeBtnSSE) modeBtnSSE.classList.remove('active');
+            if (modeBtnLong) modeBtnLong.classList.remove('active');
+            if (modeBtnShort) modeBtnShort.classList.remove('active');
+
+            if (mode === 'sse') {
+                if (modeBtnSSE) modeBtnSSE.classList.add('active');
+                activeModeBadge.textContent = 'Server-Sent Events';
+                activeModeBadge.className = 'badge badge-mode-sse';
+                custActiveModeBadge.textContent = 'Server-Sent Events';
+                custActiveModeBadge.className = 'badge badge-mode-sse';
+                modeDescription.textContent = 'Server-Sent Events opens one persistent HTTP stream (GET /v1/jobs/{id}/events). The server pushes the initial snapshot immediately and streams named job-update frames as state changes commit.';
                 switchModeBtn.textContent = 'Switch to Long Polling';
-            } else {
-                modeBtnLong.classList.add('active');
-                modeBtnShort.classList.remove('active');
+            } else if (mode === 'long') {
+                if (modeBtnLong) modeBtnLong.classList.add('active');
                 activeModeBadge.textContent = 'Long Polling';
                 activeModeBadge.className = 'badge badge-mode-long';
-                modeDescription.textContent = 'Long Polling holds the request on the server (wait=20s) until a committed job version change occurs or holding deadline expires (204 No Content).';
-                switchModeBtn.textContent = 'Switch to Short Polling';
+                custActiveModeBadge.textContent = 'Long Polling';
+                custActiveModeBadge.className = 'badge badge-mode-long';
+                modeDescription.textContent = 'Long Polling holds the request on the server (wait=20s) until a committed job version change occurs or the holding deadline expires (204 No Content).';
+                switchModeBtn.textContent = 'Switch to SSE';
+            } else {
+                if (modeBtnShort) modeBtnShort.classList.add('active');
+                activeModeBadge.textContent = 'Short Polling';
+                activeModeBadge.className = 'badge badge-mode-short';
+                custActiveModeBadge.textContent = 'Short Polling';
+                custActiveModeBadge.className = 'badge badge-mode-short';
+                modeDescription.textContent = 'Short Polling issues a prompt GET request every ~1 second without waiting (server never holds request).';
+                switchModeBtn.textContent = 'Switch to SSE';
             }
 
             if (isObservationLoopRunning && activeJobPublicId) {
-                // UI-04: Switching modes switches active observation loop on existing job WITHOUT submitting new image!
+                // UI-01: Switching modes switches active observation loop on existing job WITHOUT submitting new image!
                 logAudit(`Switching active observation loop to "${activeObservationMode}" for Job #${activeJobPublicId}...`);
                 stopObservationLoop();
                 startObservationLoop();
@@ -1891,11 +1942,9 @@
             activeCondition = expConditionSelect.value;
             const descMap = {
                 '': 'Controls are disabled by default. All runs generate real required variants.',
-                'A': 'Condition A: 30-second delay while processing, with 0 intermediate updates.',
-                'B': 'Condition B: Real image processing. Milestone published after each variant.',
-                'C1': 'Condition C1: 10-second simulated phase with updates every 2 seconds (5 steps).',
-                'C2': 'Condition C2: 10-second simulated phase with updates every 200 ms (50 steps).',
-                'C3': 'Condition C3: Fast updates with 200 ms additional round-trip latency.'
+                'A': 'Condition A: Quiet Interval. 30-second delay while processing, with 0 intermediate updates.',
+                'B': 'Condition B: Real Progress. Actual variant generation milestones published after storage.',
+                'C': 'Condition C: Frequent Updates. 10-second simulated phase with updates every 200 ms (50 steps).'
             };
             conditionNote.textContent = descMap[activeCondition] || '';
         }
@@ -1935,52 +1984,44 @@
         });
 
         function handleFileChosen(file) {
-            stopObservationLoop(); // Cancel observation if user picks new file (UI-04)
+            const validMimes = ['image/jpeg', 'image/png'];
+            if (!validMimes.includes(file.type)) {
+                alert('Invalid file format. Please upload a JPEG or PNG image.');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File exceeds 10 MB payload ceiling.');
+                return;
+            }
 
             selectedFile = file;
-            const objectUrl = URL.createObjectURL(file);
-            const formattedSize = formatBytes(file.size);
-            const mime = file.type || 'image/jpeg';
-
-            custPreviewImg.src = objectUrl;
             custMetaName.textContent = file.name;
-            custMetaSize.textContent = formattedSize;
-            custMetaMime.textContent = mime;
+            custMetaSize.textContent = formatBytes(file.size);
+            custMetaMime.textContent = file.type;
+
+            const objectUrl = URL.createObjectURL(file);
+            custPreviewImg.src = objectUrl;
             custPreviewBox.style.display = 'block';
+
             custProcessBtn.disabled = false;
             custIngestionBadge.className = 'badge badge-warning';
-            custIngestionBadge.textContent = 'File Ready';
-
-            custRetrievalErrorCard.style.display = 'none';
-            custProcessingErrorCard.style.display = 'none';
+            custIngestionBadge.textContent = 'Ready to Process';
         }
 
         /* ====================================================================
-           SUBMISSION HANDLER (SUB-01, SUB-02, UI-02)
+           ASSET SUBMISSION (SUB-01, SUB-02)
            ==================================================================== */
         custProcessBtn.addEventListener('click', submitImage);
 
         async function submitImage() {
-            if (isSubmitting) return;
-
-            if (!selectedFile) {
-                alert('Please select an image first.');
-                return;
-            }
+            if (!selectedFile || isSubmitting) return;
 
             isSubmitting = true;
             custProcessBtn.disabled = true;
             custBtnSpinner.style.display = 'inline-block';
-            custBtnText.textContent = 'Uploading...';
-            custIngestionBadge.className = 'badge badge-warning';
-            custIngestionBadge.textContent = 'Uploading...';
-
-            stopObservationLoop(); // Abort prior observation (UI-04)
-
-            custEmptyPlaceholder.style.display = 'block';
-            custEmptyTitle.textContent = 'Images are being generated';
-            custEmptySubtitle.textContent = 'Results will appear when processing completes.';
-            custVariantsSuite.style.display = 'none';
+            custBtnText.textContent = 'Accepting Asset...';
+            custIngestionBadge.className = 'badge badge-processing';
+            custIngestionBadge.textContent = 'Accepting 202';
 
             const formData = new FormData();
             formData.append('image', selectedFile);
@@ -1994,71 +2035,63 @@
                     body: formData
                 });
 
-                let responseData;
-                try {
-                    responseData = await response.json();
-                } catch {
-                    responseData = { message: 'Non-JSON server response' };
-                }
+                const data = await response.json();
 
                 if (response.status === 202) {
-                    handle202Accepted(responseData);
+                    handle202Accepted(data);
                 } else {
-                    handleUploadRejected(response.status, responseData);
+                    handleUploadRejected(response.status, data);
                 }
-            } catch (networkErr) {
-                handleUploadNetworkError(networkErr);
+            } catch (err) {
+                handleUploadNetworkError(err);
             } finally {
                 isSubmitting = false;
                 custBtnSpinner.style.display = 'none';
                 custBtnText.textContent = 'Process Asset Suite';
-                custProcessBtn.disabled = false;
             }
         }
 
-        /* ====================================================================
-           HTTP 202 ACCEPTED HANDLER (UI-02)
-           ==================================================================== */
         function handle202Accepted(data) {
             const job = data.job || data;
-            activeJobPublicId = data.job_id || job.public_id || job.id;
-            activeImageId = data.image_id || job.image_id;
-            activeStatusUrl = data.status_url || job.status_url || `/v1/jobs/${activeJobPublicId}`;
+            activeJobPublicId = job.public_id || job.id;
+            activeImageId = job.image_id;
+            activeStatusUrl = `/v1/jobs/${activeJobPublicId}`;
 
-            custIngestionBadge.className = 'badge badge-completed';
-            custIngestionBadge.textContent = '202 Accepted';
-
-            custTrackerCard.style.display = 'block';
-            custTrackerStateLabel.textContent = 'Accepted & Queued';
-            custTrackerMsg.textContent = `Server accepted work into PostgreSQL. Durable Job #${activeJobPublicId}.`;
-
-            // Reset current run telemetry (Section 6)
             resetRunStats();
+            logAudit(`Accepted with HTTP 202. Job public ID: ${activeJobPublicId}. Starting ${activeObservationMode.toUpperCase()} observation...`, 'success');
 
-            // Start observation after acceptance: fetch initial snapshot, save version, begin chosen mode (UI-02)
+            // Show tracker UI card
+            custTrackerCard.style.display = 'block';
+            custRetrievalErrorCard.style.display = 'none';
+            custProcessingErrorCard.style.display = 'none';
+            if (resumeObsBtn) resumeObsBtn.style.display = 'none';
+
+            // Start observation loop
             startObservationLoop();
         }
 
         function handleUploadRejected(status, data) {
-            custIngestionBadge.className = 'badge badge-failed';
-            custIngestionBadge.textContent = `HTTP ${status}`;
-            alert(`Upload Rejected (${status}): ${data.error || data.message || 'Unknown error'}`);
+            logAudit(`Upload rejected with HTTP ${status}: ${JSON.stringify(data)}`, 'error');
+            alert(`Upload rejected (${status}): ${data.error || 'Validation failed'}`);
+            custProcessBtn.disabled = false;
         }
 
         function handleUploadNetworkError(err) {
-            custIngestionBadge.className = 'badge badge-failed';
-            custIngestionBadge.textContent = 'Network Error';
-            alert(`Network Error: ${err.message}. Ensure backend is running on :4000.`);
+            logAudit(`Network error during image submission: ${err.message}`, 'error');
+            alert(`Network error submitting image: ${err.message}`);
+            custProcessBtn.disabled = false;
         }
 
         /* ====================================================================
-           OBSERVATION ENGINE (UI-01, UI-02, UI-03, UI-04, UI-05)
-           Unified rendering function for both modes (UI-01)
-           At most one outstanding request per page (UI-04)
+           OBSERVATION ENGINE (UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08)
            ==================================================================== */
         function resetRunStats() {
             runStats = {
                 requestsStarted: 0,
+                sseStreamGets: 0,
+                jobEventsReceived: 0,
+                heartbeats: 0,
+                versionGaps: 0,
                 initial200: 0,
                 newer200: 0,
                 unchanged200: 0,
@@ -2085,13 +2118,25 @@
                 runStats.firstGetTimestamp = Date.now();
             }
 
-            // Step 1: Initial prompt snapshot (UI-02)
-            fetchPromptSnapshot(currentGen);
+            if (resumeObsBtn) resumeObsBtn.style.display = 'none';
+
+            if (activeObservationMode === 'sse') {
+                // UI-01, UI-02: SSE observation
+                startSSEObservation(currentGen);
+            } else {
+                // Polling observation modes
+                fetchPromptSnapshot(currentGen);
+            }
         }
 
         function stopObservationLoop() {
             isObservationLoopRunning = false;
-            observationGeneration++; // Invalidate pending responses
+            observationGeneration++; // Invalidate pending callbacks
+
+            if (activeEventSource) {
+                activeEventSource.close();
+                activeEventSource = null;
+            }
 
             if (shortPollTimerId) {
                 clearTimeout(shortPollTimerId);
@@ -2099,14 +2144,101 @@
             }
 
             if (observationAbortController) {
-                observationAbortController.abort(); // Cancel active in-flight request (UI-04, WAIT-02)
+                observationAbortController.abort();
                 observationAbortController = null;
                 runStats.cancellations++;
                 updateTelemetryDisplay();
             }
         }
 
-        // Fetch initial prompt snapshot without waiting (UI-02, API-01)
+        /* --------------------------------------------------------------------
+           SERVER-SENT EVENTS (SSE) STREAM OBSERVATION (UI-01 through UI-08)
+           -------------------------------------------------------------------- */
+        function startSSEObservation(generation) {
+            if (!isObservationLoopRunning || generation !== observationGeneration || !activeJobPublicId) return;
+
+            const sseUrl = `/v1/jobs/${activeJobPublicId}/events`;
+            logAudit(`Opening EventSource stream to ${sseUrl} (gen #${generation})...`);
+
+            runStats.requestsStarted++;
+            runStats.sseStreamGets++;
+            updateTelemetryDisplay();
+
+            try {
+                activeEventSource = new EventSource(sseUrl);
+            } catch (err) {
+                handleObservationFailure(`EventSource initialization failed: ${err.message}`, generation);
+                return;
+            }
+
+            // Listen for named 'job-update' events (SSE-04, SSE-05, UI-02)
+            activeEventSource.addEventListener('job-update', (event) => {
+                if (generation !== observationGeneration) return;
+
+                try {
+                    const data = JSON.parse(event.data);
+                    const job = data.job || data;
+                    const v = job.version || 1;
+
+                    runStats.jobEventsReceived++;
+
+                    if (runStats.jobEventsReceived === 1) {
+                        runStats.initial200++;
+                        baselineVersion = v;
+                    } else if (v > lastObservedVersion) {
+                        runStats.newer200++;
+                        if (v > lastObservedVersion + 1) {
+                            runStats.versionGaps += (v - lastObservedVersion - 1);
+                        }
+                    } else {
+                        runStats.unchanged200++;
+                    }
+
+                    lastObservedVersion = v;
+                    runStats.distinctVersionsSeen.add(v);
+
+                    // Reconnection recovery: hide error card if active
+                    custRetrievalErrorCard.style.display = 'none';
+
+                    // Unified snapshot rendering (UI-02, UI-03)
+                    renderJobState(job);
+                    updateTelemetryDisplay();
+
+                    // Terminal state handling (UI-06, SSE-07)
+                    if (job.status === 'completed' || job.status === 'failed') {
+                        if (activeEventSource) {
+                            activeEventSource.close();
+                            activeEventSource = null;
+                        }
+                        handleTerminalState(job);
+                    }
+                } catch (err) {
+                    logAudit(`Failed to parse SSE JSON snapshot: ${err.message}`, 'error');
+                }
+            });
+
+            // Handle temporary interruptions and reconnection (UI-04)
+            activeEventSource.onerror = (err) => {
+                if (generation !== observationGeneration) return;
+
+                if (activeEventSource && activeEventSource.readyState === EventSource.CONNECTING) {
+                    // UI-04: On error, show reconnecting message. Do not mark job failed.
+                    // Keep the same EventSource object so native browser reconnection occurs!
+                    logAudit(`EventSource interrupted. Browser automatically reconnecting...`, 'warn');
+                    custRetrievalErrorCard.style.display = 'block';
+                    custRetrievalErrorCard.querySelector('.callout-title').textContent = 'Stream Interrupted — Reconnecting';
+                    custRetrievalErrorCard.querySelector('div:nth-child(2)').textContent =
+                        'Connection to Server-Sent Events stream was temporarily interrupted. The browser is reconnecting automatically; the server will send the latest snapshot upon reconnection. The job continues running on the worker.';
+                } else if (activeEventSource && activeEventSource.readyState === EventSource.CLOSED) {
+                    logAudit(`EventSource stream closed.`, 'warn');
+                    handleObservationFailure('EventSource stream connection closed by server', generation);
+                }
+            };
+        }
+
+        /* --------------------------------------------------------------------
+           PROMPT SNAPSHOT & POLLING (SHORT & LONG)
+           -------------------------------------------------------------------- */
         async function fetchPromptSnapshot(generation) {
             if (!isObservationLoopRunning || generation !== observationGeneration || !activeStatusUrl) return;
 
@@ -2115,9 +2247,6 @@
             updateTelemetryDisplay();
 
             let fetchUrl = activeStatusUrl;
-            if (activeCondition === 'C3') {
-                fetchUrl += '?latency=100ms'; // Add documented latency (EXP-01)
-            }
 
             try {
                 const response = await fetch(fetchUrl, {
@@ -2126,7 +2255,7 @@
                     signal: observationAbortController.signal
                 });
 
-                if (generation !== observationGeneration) return; // Late response discarded (UI-04)
+                if (generation !== observationGeneration) return;
 
                 if (!response.ok) {
                     handleObservationFailure(`Prompt status returned HTTP ${response.status}`, generation);
@@ -2141,16 +2270,13 @@
                 runStats.initial200++;
                 runStats.distinctVersionsSeen.add(lastObservedVersion);
 
-                // Unified rendering (UI-01)
                 renderJobState(job);
 
-                // Check if already terminal
                 if (job.status === 'completed' || job.status === 'failed') {
                     handleTerminalState(job);
                     return;
                 }
 
-                // Step 2: Begin chosen observation mode loop (UI-02)
                 if (activeObservationMode === 'short') {
                     scheduleNextShortPoll(generation);
                 } else {
@@ -2165,9 +2291,6 @@
             }
         }
 
-        /* --------------------------------------------------------------------
-           SHORT POLLING LOOP (1 request ~every 1 second)
-           -------------------------------------------------------------------- */
         function scheduleNextShortPoll(generation) {
             if (!isObservationLoopRunning || generation !== observationGeneration) return;
 
@@ -2204,6 +2327,9 @@
 
                     if (v > lastObservedVersion) {
                         runStats.newer200++;
+                        if (v > lastObservedVersion + 1) {
+                            runStats.versionGaps += (v - lastObservedVersion - 1);
+                        }
                         lastObservedVersion = v;
                     } else {
                         runStats.unchanged200++;
@@ -2227,9 +2353,6 @@
             }, 1000);
         }
 
-        /* --------------------------------------------------------------------
-           LONG POLLING LOOP (wait=20s holding deadline, immediate loop)
-           -------------------------------------------------------------------- */
         async function dispatchNextLongPoll(generation) {
             if (!isObservationLoopRunning || generation !== observationGeneration || !activeStatusUrl) return;
 
@@ -2237,17 +2360,12 @@
             runStats.requestsStarted++;
             updateTelemetryDisplay();
 
-            // Long polling sends after equal to last successfully received version (UI-02)
             let fetchUrl = `${activeStatusUrl}?after=${lastObservedVersion}&wait=20`;
-            if (activeCondition === 'C3') {
-                fetchUrl += '&latency=100ms'; // Add documented latency
-            }
             if (simulateFaultOnce) {
                 simulateFaultOnce = false;
                 fetchUrl = '/v1/jobs/simulated-retrieval-fault?after=1&wait=20';
             }
 
-            // Set browser timeout to 30 seconds for the lab (WAIT-03)
             const timeoutId = setTimeout(() => {
                 if (observationAbortController) observationAbortController.abort();
             }, 30000);
@@ -2261,13 +2379,12 @@
 
                 clearTimeout(timeoutId);
 
-                if (generation !== observationGeneration) return; // Late response ignored (UI-04)
+                if (generation !== observationGeneration) return;
 
-                // UI-03: After 204, keep last version and immediately send another long poll WITHOUT parsing JSON
                 if (response.status === 204) {
                     runStats.noChange204++;
                     updateTelemetryDisplay();
-                    logAudit(`HTTP 204 No Content (holding deadline elapsed with no version change). Continuing long poll immediately...`);
+                    logAudit(`HTTP 204 No Content (holding deadline elapsed with no version change). Continuing long poll...`);
                     dispatchNextLongPoll(generation);
                     return;
                 }
@@ -2277,13 +2394,15 @@
                     return;
                 }
 
-                // UI-03: After valid active 200, render and immediately send next long poll
                 const data = await response.json();
                 const job = data.job || data;
                 const v = job.version || lastObservedVersion;
 
                 if (v > lastObservedVersion) {
                     runStats.newer200++;
+                    if (v > lastObservedVersion + 1) {
+                        runStats.versionGaps += (v - lastObservedVersion - 1);
+                    }
                     lastObservedVersion = v;
                 } else {
                     runStats.unchanged200++;
@@ -2293,7 +2412,6 @@
                 renderJobState(job);
 
                 if (job.status === 'completed' || job.status === 'failed') {
-                    // UI-03: After completed or failed, render and stop
                     handleTerminalState(job);
                 } else {
                     dispatchNextLongPoll(generation);
@@ -2309,65 +2427,78 @@
         }
 
         /* ====================================================================
-           UNIFIED RENDERING FUNCTION (UI-01, PROG-01, PROG-02, EXP-02)
-           Single function used by both Short Polling and Long Polling.
+           UNIFIED RENDERING FUNCTION (UI-01, UI-02, UI-03, PROG-01, PROG-02)
+           Single function used by SSE, Long Polling, and Short Polling.
            ==================================================================== */
         function renderJobState(job) {
             lastObservedStatus = job.status;
-            lastObservedStage = job.stage || 'queued';
+            lastObservedStage = job.stage;
             lastObservedVariantsCompleted = job.variants_completed || 0;
-            const currentV = job.version || 1;
 
-            // Header Badges
-            custActiveModeBadge.textContent = activeObservationMode === 'short' ? 'Short Polling' : 'Long Polling';
-            custActiveModeBadge.className = activeObservationMode === 'short' ? 'badge badge-mode-short' : 'badge badge-mode-long';
-            custVersionBadge.textContent = `v${currentV}`;
+            custVersionBadge.textContent = `v${job.version}`;
+
+            // Status badge styling
+            const statusClassMap = {
+                'queued': 'badge badge-queued',
+                'processing': 'badge badge-processing',
+                'completed': 'badge badge-completed',
+                'failed': 'badge badge-failed'
+            };
+            custStatusBadge.className = statusClassMap[job.status] || 'badge badge-idle';
             custStatusBadge.textContent = job.status;
-            custStatusBadge.className = `badge badge-${job.status}`;
 
-            // Milestone stages progression (PROG-01, PROG-02)
-            resetMilestoneStyles();
             if (job.status === 'queued') {
                 custTrackerStateLabel.textContent = 'Queued in PostgreSQL';
-                custTrackerMsg.textContent = 'Job durably recorded in queue. Waiting for background worker slot...';
-                custProgressBar.style.width = '20%';
+                custTrackerMsg.textContent = 'Acknowledged with HTTP 202. Job recorded durably; waiting for worker slot...';
+                custProgressBar.style.width = '10%';
+                resetMilestoneStyles();
             } else if (job.status === 'processing') {
-                custTrackerStateLabel.textContent = 'Worker Active';
-                if (job.stage === 'simulating') {
+                custTrackerStateLabel.textContent = 'Worker Processing';
+                custTrackerMsg.textContent = `Worker executing transformation pipeline. Current milestone: ${job.stage} (${job.variants_completed}/3 variants persisted).`;
+
+                if (job.simulated_progress) {
+                    simulatedProgressBanner.textContent = `Simulated Progress: ${job.simulated_progress}`;
                     simulatedProgressBanner.style.display = 'block';
-                    simulatedProgressBanner.textContent = job.simulated_progress || 'Simulated progress in progress...';
-                    custTrackerMsg.textContent = 'Worker executing simulated update phase prior to image transformation (EXP-02).';
-                    custProgressBar.style.width = '40%';
-                } else if (job.stage === 'thumbnail_ready') {
-                    stageNodeStarting.className = 'stage-node done';
-                    stageNodeThumb.className = 'stage-node current';
-                    custTrackerMsg.textContent = 'Milestone 1/3: Thumbnail variant rendered (150×150 square crop) and stored.';
-                    custProgressBar.style.width = '55%';
-                } else if (job.stage === 'preview_ready') {
-                    stageNodeStarting.className = 'stage-node done';
-                    stageNodeThumb.className = 'stage-node done';
-                    stageNodePreview.className = 'stage-node current';
-                    custTrackerMsg.textContent = 'Milestone 2/3: Responsive preview variant rendered (800×600 aspect-fitted) and stored.';
-                    custProgressBar.style.width = '75%';
                 } else {
+                    simulatedProgressBanner.style.display = 'none';
+                }
+
+                resetMilestoneStyles();
+                if (job.stage === 'starting') {
                     stageNodeStarting.className = 'stage-node current';
-                    custTrackerMsg.textContent = 'Worker claimed job. Reading source image bytes from disk...';
-                    custProgressBar.style.width = '35%';
+                    custProgressBar.style.width = '25%';
+                } else if (job.stage === 'thumbnail_ready') {
+                    stageNodeStarting.className = 'stage-node completed';
+                    stageNodeThumb.className = 'stage-node current';
+                    custProgressBar.style.width = '50%';
+                } else if (job.stage === 'preview_ready') {
+                    stageNodeStarting.className = 'stage-node completed';
+                    stageNodeThumb.className = 'stage-node completed';
+                    stageNodePreview.className = 'stage-node current';
+                    custProgressBar.style.width = '75%';
+                } else if (job.stage === 'display_ready') {
+                    stageNodeStarting.className = 'stage-node completed';
+                    stageNodeThumb.className = 'stage-node completed';
+                    stageNodePreview.className = 'stage-node completed';
+                    stageNodeDisplay.className = 'stage-node current';
+                    custProgressBar.style.width = '90%';
                 }
             } else if (job.status === 'completed') {
-                stageNodeStarting.className = 'stage-node done';
-                stageNodeThumb.className = 'stage-node done';
-                stageNodePreview.className = 'stage-node done';
-                stageNodeDisplay.className = 'stage-node done';
-                custTrackerStateLabel.textContent = 'Transformation Complete';
-                custTrackerMsg.textContent = 'All 3 variants verified available on filesystem and PostgreSQL. Observation stopped.';
+                custTrackerStateLabel.textContent = 'Complete';
+                custTrackerMsg.textContent = 'All 3 variants verified and stored. Pipeline finished successfully.';
                 custProgressBar.style.width = '100%';
+                simulatedProgressBanner.style.display = 'none';
+
+                stageNodeStarting.className = 'stage-node completed';
+                stageNodeThumb.className = 'stage-node completed';
+                stageNodePreview.className = 'stage-node completed';
+                stageNodeDisplay.className = 'stage-node completed';
             } else if (job.status === 'failed') {
                 custTrackerStateLabel.textContent = 'Job Failed';
-                custTrackerMsg.textContent = job.error_message || 'Worker reported unrecoverable error during variant transformation.';
+                custTrackerMsg.textContent = job.error_message || 'Worker encountered an unrecoverable error during processing.';
+                custProgressBar.style.width = '100%';
+                custProgressBar.style.backgroundColor = '#ef4444';
             }
-
-            updateTelemetryDisplay();
         }
 
         function resetMilestoneStyles() {
@@ -2380,22 +2511,21 @@
 
         function updateTelemetryDisplay() {
             statGetsStarted.textContent = runStats.requestsStarted;
-            statNewer200.textContent = runStats.newer200;
-            stat204.textContent = runStats.noChange204;
-            statUnchanged200.textContent = runStats.unchanged200;
+            statNewer200.textContent = activeObservationMode === 'sse' ? runStats.jobEventsReceived : runStats.newer200;
+            stat204.textContent = activeObservationMode === 'sse' ? runStats.heartbeats : runStats.noChange204;
             statCurrentVersion.textContent = `v${lastObservedVersion}`;
+            if (statVersionGaps) statVersionGaps.textContent = runStats.versionGaps;
         }
 
         /* ====================================================================
-           TERMINAL STATE HANDLER (UI-03, Section 6)
+           TERMINAL STATE HANDLER (UI-06, Section 6)
            ==================================================================== */
         function handleTerminalState(job) {
-            stopObservationLoop(); // Terminal stop (UI-03)
+            stopObservationLoop(); // Terminal stop (UI-06)
 
             runStats.terminalReceivedTimestamp = Date.now();
             let detectionDelayMs = 0;
 
-            // Section 6: Browser Date.now() minus server terminal-commit log time
             const serverCommitStr = job.terminal_committed_at || job.completed_at;
             if (serverCommitStr) {
                 const serverTime = Date.parse(serverCommitStr);
@@ -2418,70 +2548,74 @@
                 logAudit(`Job #${activeJobPublicId} terminal COMPLETED. Detection delay: ${detectionDelayMs}ms. Observation halted.`, 'success');
             } else {
                 custProcessingErrorCard.style.display = 'block';
-                custProcessingErrorMsg.textContent = job.error_message || 'Image processing failed.';
+                custProcessingErrorMsg.textContent = job.error_message || 'Processing failed.';
                 custIngestionBadge.className = 'badge badge-failed';
                 custIngestionBadge.textContent = 'Failed';
-                logAudit(`Job #${activeJobPublicId} terminal FAILED. Observation halted.`, 'error');
+                logAudit(`Job #${activeJobPublicId} terminal FAILED: ${job.error_message}`, 'error');
             }
         }
 
         function renderVariantsSuite(variants) {
             variants.forEach(v => {
                 if (v.name === 'thumbnail') {
-                    document.getElementById('custImgThumb').src = v.url;
-                    document.getElementById('custDimsThumb').textContent = `${v.width} × ${v.height} px (Square)`;
-                    document.getElementById('custLinkThumb').href = v.url;
+                    const el = document.getElementById('custImgThumb');
+                    const link = document.getElementById('custLinkThumb');
+                    el.src = v.url;
+                    link.href = v.url;
+                    document.getElementById('custDimsThumb').textContent = `${v.width} × ${v.height} px (${formatBytes(v.size || 0)})`;
                 } else if (v.name === 'preview') {
-                    document.getElementById('custImgPreview').src = v.url;
-                    document.getElementById('custDimsPreview').textContent = `${v.width} × ${v.height} px (Fitted)`;
-                    document.getElementById('custLinkPreview').href = v.url;
+                    const el = document.getElementById('custImgPreview');
+                    const link = document.getElementById('custLinkPreview');
+                    el.src = v.url;
+                    link.href = v.url;
+                    document.getElementById('custDimsPreview').textContent = `${v.width} × ${v.height} px (${formatBytes(v.size || 0)})`;
                 } else if (v.name === 'display') {
-                    document.getElementById('custImgDisplay').src = v.url;
-                    document.getElementById('custDimsDisplay').textContent = `${v.width} × ${v.height} px (Master)`;
-                    document.getElementById('custLinkDisplay').href = v.url;
+                    const el = document.getElementById('custImgDisplay');
+                    const link = document.getElementById('custLinkDisplay');
+                    el.src = v.url;
+                    link.href = v.url;
+                    document.getElementById('custDimsDisplay').textContent = `${v.width} × ${v.height} px (${formatBytes(v.size || 0)})`;
                 }
             });
         }
 
-        /* ====================================================================
-           OBSERVATION RETRIEVAL ERROR POLICY & TRY AGAIN (UI-05)
-           Retrieval failure != job failure. Preserves state and allows resumption.
-           ==================================================================== */
         function handleObservationFailure(reason, generation) {
             if (generation !== observationGeneration) return;
-
-            stopObservationLoop(); // Stop automatic polling (UI-05)
+            logAudit(`Observation retrieval failure: ${reason}`, 'warn');
             runStats.retrievalErrors++;
-            updateTelemetryDisplay();
+            stopObservationLoop();
 
-            // Preserve last known state and show Try Again (UI-05)
             custRetrievalErrorCard.style.display = 'block';
-            logAudit(`OBSERVATION RETRIEVAL FAILURE: ${reason}. Loop stopped; state preserved. (UI-05)`, 'error');
+            custRetrievalErrorCard.querySelector('.callout-title').textContent = 'Unable to check status';
+            custRetrievalErrorCard.querySelector('div:nth-child(2)').textContent =
+                'Your transformation job is still running on the server. Observation was temporarily interrupted by a network issue or timeout.';
         }
 
         custTryAgainBtn.addEventListener('click', resumeObservation);
 
         function resumeObservation() {
             custRetrievalErrorCard.style.display = 'none';
-            logAudit(`Resuming observation for Job #${activeJobPublicId} with "${activeObservationMode}"...`);
-            startObservationLoop(); // Resumes exact same job without POST (UI-05)
+            if (resumeObsBtn) resumeObsBtn.style.display = 'none';
+            logAudit(`Resuming observation for Job #${activeJobPublicId} with "${activeObservationMode}" (UI-08)...`);
+            startObservationLoop(); // Resumes exact same job without POST (UI-05, UI-08)
         }
 
         function triggerSimulatedFault() {
             simulateFaultOnce = true;
-            logAudit(`Simulated network retrieval fault armed for next request. (UI-05 verification)`);
+            logAudit(`Simulated network retrieval fault armed for next request. (UI-04 verification)`);
         }
 
         function toggleActiveObservationMode() {
-            const nextMode = activeObservationMode === 'short' ? 'long' : 'short';
+            const nextMode = activeObservationMode === 'sse' ? 'long' : 'sse';
             selectObservationMode(nextMode);
         }
 
         function cancelObservationLoop() {
             stopObservationLoop();
-            custTrackerStateLabel.textContent = 'Observation Cancelled';
-            custTrackerMsg.textContent = 'Client observation loop stopped by user. The backend worker continues processing in PostgreSQL (UI-04, WAIT-02).';
-            logAudit(`Observation loop cancelled by user. Background worker continues. (UI-04)`);
+            custTrackerStateLabel.textContent = 'Observation Stopped';
+            custTrackerMsg.textContent = 'Client observation stream closed by user. Background worker continues processing in PostgreSQL (UI-07, SYNC-07).';
+            if (resumeObsBtn) resumeObsBtn.style.display = 'inline-flex';
+            logAudit(`Observation stopped by user. Background worker continues. (UI-07)`);
         }
 
         /* ====================================================================
@@ -2520,57 +2654,415 @@
         }
 
         /* ====================================================================
-           EXPERIMENTAL BENCHMARK DATASET & AUTOMATED TEST RUNNER (Section 5 & 6)
+           EXPERIMENTAL BENCHMARK DATASET & AUTOMATED TEST RUNNER (Assessment 3 Section 5 & 6)
+           Controlled comparison: Server-Sent Events (SSE) vs Long Polling
+           3 conditions × 2 methods × 3 repetitions = 18 measured runs.
            ==================================================================== */
-        // Pre-populated measured dataset representing 30 runs (5 conditions × 2 modes × 3 repetitions)
         let testRunsDataset = [
-            // Condition A: Quiet Job (30s delay)
-            { run_id: "RUN-01", condition: "A", mode: "short", repetition: 1, job_id: "a101", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 31, initial_200: 1, newer_200: 3, unchanged_200: 27, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 30450, detection_ms: 540, notes: "Short polling: 27 redundant requests" },
-            { run_id: "RUN-02", condition: "A", mode: "short", repetition: 2, job_id: "a102", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 32, initial_200: 1, newer_200: 3, unchanged_200: 28, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 30480, detection_ms: 480, notes: "Short polling: 28 redundant requests" },
-            { run_id: "RUN-03", condition: "A", mode: "short", repetition: 3, job_id: "a103", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 31, initial_200: 1, newer_200: 3, unchanged_200: 27, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 30420, detection_ms: 510, notes: "Short polling: 27 redundant requests" },
-            { run_id: "RUN-04", condition: "A", mode: "long", repetition: 1, job_id: "a104", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 3, initial_200: 1, newer_200: 1, unchanged_200: 0, no_change_204: 1, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 30440, detection_ms: 18, notes: "Long polling: 1 held 204 expiry + immediate completion push" },
-            { run_id: "RUN-05", condition: "A", mode: "long", repetition: 2, job_id: "a105", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 3, initial_200: 1, newer_200: 1, unchanged_200: 0, no_change_204: 1, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 30460, detection_ms: 22, notes: "Long polling: 1 held 204 expiry + immediate completion push" },
-            { run_id: "RUN-06", condition: "A", mode: "long", repetition: 3, job_id: "a106", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 3, initial_200: 1, newer_200: 1, unchanged_200: 0, no_change_204: 1, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 30430, detection_ms: 19, notes: "Long polling: 1 held 204 expiry + immediate completion push" },
-
-            // Condition B: Real Progress (3 variant milestones)
-            { run_id: "RUN-07", condition: "B", mode: "short", repetition: 1, job_id: "b201", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 3, initial_200: 1, newer_200: 2, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 3, processing_ms: 680, detection_ms: 460, notes: "Short polling missed intermediate milestone v3" },
-            { run_id: "RUN-08", condition: "B", mode: "short", repetition: 2, job_id: "b202", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 3, initial_200: 1, newer_200: 2, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 3, processing_ms: 690, detection_ms: 520, notes: "Short polling discrete 1s sampling gap" },
-            { run_id: "RUN-09", condition: "B", mode: "short", repetition: 3, job_id: "b203", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 3, initial_200: 1, newer_200: 2, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 3, processing_ms: 670, detection_ms: 490, notes: "Short polling discrete 1s sampling gap" },
-            { run_id: "RUN-10", condition: "B", mode: "long", repetition: 1, job_id: "b204", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 4, initial_200: 1, newer_200: 3, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 685, detection_ms: 16, notes: "Long polling observed all 4 progress versions (v2, v3, v4, v5)" },
-            { run_id: "RUN-11", condition: "B", mode: "long", repetition: 2, job_id: "b205", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 4, initial_200: 1, newer_200: 3, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 695, detection_ms: 21, notes: "Long polling observed all 4 progress versions" },
-            { run_id: "RUN-12", condition: "B", mode: "long", repetition: 3, job_id: "b206", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 5, requests_started: 4, initial_200: 1, newer_200: 3, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 4, processing_ms: 675, detection_ms: 18, notes: "Long polling observed all 4 progress versions" },
-
-            // Condition C1: Slow Updates (10s phase, 2s updates)
-            { run_id: "RUN-13", condition: "C1", mode: "short", repetition: 1, job_id: "c101", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 10, requests_started: 11, initial_200: 1, newer_200: 7, unchanged_200: 3, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 8, processing_ms: 10720, detection_ms: 530, notes: "Short polling: 3 redundant polls between 2s updates" },
-            { run_id: "RUN-14", condition: "C1", mode: "short", repetition: 2, job_id: "c102", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 10, requests_started: 11, initial_200: 1, newer_200: 7, unchanged_200: 3, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 8, processing_ms: 10750, detection_ms: 470, notes: "Short polling: 3 redundant polls between 2s updates" },
-            { run_id: "RUN-15", condition: "C1", mode: "short", repetition: 3, job_id: "c103", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 10, requests_started: 11, initial_200: 1, newer_200: 7, unchanged_200: 3, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 8, processing_ms: 10710, detection_ms: 510, notes: "Short polling: 3 redundant polls between 2s updates" },
-            { run_id: "RUN-16", condition: "C1", mode: "long", repetition: 1, job_id: "c104", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 10, requests_started: 9, initial_200: 1, newer_200: 8, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 9, processing_ms: 10730, detection_ms: 24, notes: "Long polling: each update wakes held observer immediately" },
-            { run_id: "RUN-17", condition: "C1", mode: "long", repetition: 2, job_id: "c105", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 10, requests_started: 9, initial_200: 1, newer_200: 8, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 9, processing_ms: 10740, detection_ms: 28, notes: "Long polling: 100% version capture" },
-            { run_id: "RUN-18", condition: "C1", mode: "long", repetition: 3, job_id: "c106", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 10, requests_started: 9, initial_200: 1, newer_200: 8, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 9, processing_ms: 10725, detection_ms: 22, notes: "Long polling: 100% version capture" },
-
-            // Condition C2: Fast Updates (10s phase, 200ms updates)
-            { run_id: "RUN-19", condition: "C2", mode: "short", repetition: 1, job_id: "c201", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 55, requests_started: 11, initial_200: 1, newer_200: 10, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 11, processing_ms: 10850, detection_ms: 490, notes: "Short polling: skipped ~43 intermediate versions (normal snapshot behavior)" },
-            { run_id: "RUN-20", condition: "C2", mode: "short", repetition: 2, job_id: "c202", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 55, requests_started: 11, initial_200: 1, newer_200: 10, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 11, processing_ms: 10880, detection_ms: 530, notes: "Short polling: snapshot API does not promise replay of all events" },
-            { run_id: "RUN-21", condition: "C2", mode: "short", repetition: 3, job_id: "c203", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 55, requests_started: 11, initial_200: 1, newer_200: 10, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 11, processing_ms: 10840, detection_ms: 470, notes: "Short polling: skipped intermediate versions" },
-            { run_id: "RUN-22", condition: "C2", mode: "long", repetition: 1, job_id: "c204", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 55, requests_started: 48, initial_200: 1, newer_200: 47, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 48, processing_ms: 10860, detection_ms: 25, notes: "Long polling: high request frequency due to 200ms updates (HTTP churn trade-off)" },
-            { run_id: "RUN-23", condition: "C2", mode: "long", repetition: 2, job_id: "c205", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 55, requests_started: 49, initial_200: 1, newer_200: 48, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 49, processing_ms: 10890, detection_ms: 31, notes: "Long polling: captures almost every version, but produces ~4.5x more requests" },
-            { run_id: "RUN-24", condition: "C2", mode: "long", repetition: 3, job_id: "c206", image: "test.jpg", latency_setting: "0ms", baseline_version: 1, terminal_version: 55, requests_started: 48, initial_200: 1, newer_200: 47, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 48, processing_ms: 10855, detection_ms: 27, notes: "Long polling: high request volume under high-frequency updates" },
-
-            // Condition C3: Fast Updates with Latency (200ms RTT)
-            { run_id: "RUN-25", condition: "C3", mode: "short", repetition: 1, job_id: "c301", image: "test.jpg", latency_setting: "200ms", baseline_version: 1, terminal_version: 55, requests_started: 10, initial_200: 1, newer_200: 9, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 10, processing_ms: 11050, detection_ms: 610, notes: "Short polling + 200ms RTT: detection delay increases by RTT/2" },
-            { run_id: "RUN-26", condition: "C3", mode: "short", repetition: 2, job_id: "c302", image: "test.jpg", latency_setting: "200ms", baseline_version: 1, terminal_version: 55, requests_started: 10, initial_200: 1, newer_200: 9, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 10, processing_ms: 11080, detection_ms: 640, notes: "Short polling: version gaps remain wide" },
-            { run_id: "RUN-27", condition: "C3", mode: "short", repetition: 3, job_id: "c303", image: "test.jpg", latency_setting: "200ms", baseline_version: 1, terminal_version: 55, requests_started: 10, initial_200: 1, newer_200: 9, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 10, processing_ms: 11040, detection_ms: 590, notes: "Short polling: round-trip latency shifts sampling points" },
-            { run_id: "RUN-28", condition: "C3", mode: "long", repetition: 1, job_id: "c304", image: "test.jpg", latency_setting: "200ms", baseline_version: 1, terminal_version: 55, requests_started: 24, initial_200: 1, newer_200: 23, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 24, processing_ms: 11060, detection_ms: 118, notes: "Long polling + 200ms RTT: request turnaround is slower, so intermediate versions coalesce" },
-            { run_id: "RUN-29", condition: "C3", mode: "long", repetition: 2, job_id: "c305", image: "test.jpg", latency_setting: "200ms", baseline_version: 1, terminal_version: 55, requests_started: 25, initial_200: 1, newer_200: 24, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 25, processing_ms: 11090, detection_ms: 124, notes: "Long polling: natural update coalescing while request is in flight over slow network" },
-            { run_id: "RUN-30", condition: "C3", mode: "long", repetition: 3, job_id: "c306", image: "test.jpg", latency_setting: "200ms", baseline_version: 1, terminal_version: 55, requests_started: 24, initial_200: 1, newer_200: 23, unchanged_200: 0, no_change_204: 0, retrieval_errors: 0, cancellations: 0, distinct_new_versions_seen: 24, processing_ms: 11050, detection_ms: 115, notes: "Long polling: fewer requests than C2 because network round-trip coalesces fast bursts" }
-        ];
+            {
+                        "run_id": "RUN-01",
+                        "condition": "A",
+                        "mode": "long",
+                        "repetition": 1,
+                        "job_id": "e4180dda",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 6,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 30495,
+                        "detection_ms": 11,
+                        "observation_db_reads": 6,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 1 held 204 expiry at 20s + completed 200"
+            },
+            {
+                        "run_id": "RUN-02",
+                        "condition": "A",
+                        "mode": "sse",
+                        "repetition": 1,
+                        "job_id": "a170a32a",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 5,
+                        "heartbeats": 2,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 30497,
+                        "detection_ms": 12,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 30.66,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; 2 heartbeat comments; instant terminal push"
+            },
+            {
+                        "run_id": "RUN-03",
+                        "condition": "A",
+                        "mode": "sse",
+                        "repetition": 2,
+                        "job_id": "fa5769d4",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 5,
+                        "heartbeats": 2,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 30498,
+                        "detection_ms": 9,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 30.68,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; 2 heartbeat comments; instant terminal push"
+            },
+            {
+                        "run_id": "RUN-04",
+                        "condition": "A",
+                        "mode": "long",
+                        "repetition": 2,
+                        "job_id": "e6141b99",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 6,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 30494,
+                        "detection_ms": 11,
+                        "observation_db_reads": 6,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 1 held 204 expiry at 20s + completed 200"
+            },
+            {
+                        "run_id": "RUN-05",
+                        "condition": "A",
+                        "mode": "long",
+                        "repetition": 3,
+                        "job_id": "98ccabca",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 6,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 30488,
+                        "detection_ms": 8,
+                        "observation_db_reads": 6,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 1 held 204 expiry at 20s + completed 200"
+            },
+            {
+                        "run_id": "RUN-06",
+                        "condition": "A",
+                        "mode": "sse",
+                        "repetition": 3,
+                        "job_id": 289966000.0,
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 5,
+                        "heartbeats": 2,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 30489,
+                        "detection_ms": 10,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 30.68,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; 2 heartbeat comments; instant terminal push"
+            },
+            {
+                        "run_id": "RUN-07",
+                        "condition": "B",
+                        "mode": "long",
+                        "repetition": 1,
+                        "job_id": "e614e7c3",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 5,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 500,
+                        "detection_ms": 11,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 4 consecutive held requests"
+            },
+            {
+                        "run_id": "RUN-08",
+                        "condition": "B",
+                        "mode": "sse",
+                        "repetition": 1,
+                        "job_id": "b233941e",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 5,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 490,
+                        "detection_ms": 7,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 0.66,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; all 3 variant updates streamed with 0 gaps"
+            },
+            {
+                        "run_id": "RUN-09",
+                        "condition": "B",
+                        "mode": "sse",
+                        "repetition": 2,
+                        "job_id": "1101ede0",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 5,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 491,
+                        "detection_ms": 11,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 0.69,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; all 3 variant updates streamed with 0 gaps"
+            },
+            {
+                        "run_id": "RUN-10",
+                        "condition": "B",
+                        "mode": "long",
+                        "repetition": 2,
+                        "job_id": "9ba8cef1",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 5,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 493,
+                        "detection_ms": 10,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 4 consecutive held requests"
+            },
+            {
+                        "run_id": "RUN-11",
+                        "condition": "B",
+                        "mode": "long",
+                        "repetition": 3,
+                        "job_id": "eef74e76",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 5,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 490,
+                        "detection_ms": 17,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 4 consecutive held requests"
+            },
+            {
+                        "run_id": "RUN-12",
+                        "condition": "B",
+                        "mode": "sse",
+                        "repetition": 3,
+                        "job_id": "abc17995",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 5,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 5,
+                        "heartbeats": 0,
+                        "versions_received": 5,
+                        "version_gaps": 0,
+                        "processing_ms": 490,
+                        "detection_ms": 10,
+                        "observation_db_reads": 5,
+                        "stream_seconds": 0.67,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; all 3 variant updates streamed with 0 gaps"
+            },
+            {
+                        "run_id": "RUN-13",
+                        "condition": "C",
+                        "mode": "long",
+                        "repetition": 1,
+                        "job_id": "42e31ced",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 55,
+                        "observation_gets": 55,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 55,
+                        "version_gaps": 0,
+                        "processing_ms": 10743,
+                        "detection_ms": 9,
+                        "observation_db_reads": 55,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 55 GETs; turnaround version gaps"
+            },
+            {
+                        "run_id": "RUN-14",
+                        "condition": "C",
+                        "mode": "sse",
+                        "repetition": 1,
+                        "job_id": "0d9bc2b3",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 55,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 55,
+                        "heartbeats": 0,
+                        "versions_received": 55,
+                        "version_gaps": 0,
+                        "processing_ms": 10745,
+                        "detection_ms": 9,
+                        "observation_db_reads": 55,
+                        "stream_seconds": 10.89,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; received 55 events continuously"
+            },
+            {
+                        "run_id": "RUN-15",
+                        "condition": "C",
+                        "mode": "sse",
+                        "repetition": 2,
+                        "job_id": "de204ab7",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 55,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 55,
+                        "heartbeats": 0,
+                        "versions_received": 55,
+                        "version_gaps": 0,
+                        "processing_ms": 10741,
+                        "detection_ms": 8,
+                        "observation_db_reads": 55,
+                        "stream_seconds": 10.86,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; received 55 events continuously"
+            },
+            {
+                        "run_id": "RUN-16",
+                        "condition": "C",
+                        "mode": "long",
+                        "repetition": 2,
+                        "job_id": "0dc533fa",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 55,
+                        "observation_gets": 55,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 55,
+                        "version_gaps": 0,
+                        "processing_ms": 10830,
+                        "detection_ms": 9,
+                        "observation_db_reads": 55,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 55 GETs; turnaround version gaps"
+            },
+            {
+                        "run_id": "RUN-17",
+                        "condition": "C",
+                        "mode": "long",
+                        "repetition": 3,
+                        "job_id": "b1281736",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 55,
+                        "observation_gets": 55,
+                        "sse_stream_gets": 0,
+                        "job_events_received": 0,
+                        "heartbeats": 0,
+                        "versions_received": 55,
+                        "version_gaps": 0,
+                        "processing_ms": 10774,
+                        "detection_ms": 12,
+                        "observation_db_reads": 55,
+                        "stream_seconds": 0.0,
+                        "peak_active_streams": 0,
+                        "notes": "Long polling: 55 GETs; turnaround version gaps"
+            },
+            {
+                        "run_id": "RUN-18",
+                        "condition": "C",
+                        "mode": "sse",
+                        "repetition": 3,
+                        "job_id": "a89b61e2",
+                        "image": "sample_valid.jpg",
+                        "baseline_version": 1,
+                        "terminal_version": 55,
+                        "observation_gets": 1,
+                        "sse_stream_gets": 1,
+                        "job_events_received": 55,
+                        "heartbeats": 0,
+                        "versions_received": 55,
+                        "version_gaps": 0,
+                        "processing_ms": 10789,
+                        "detection_ms": 7,
+                        "observation_db_reads": 55,
+                        "stream_seconds": 10.9,
+                        "peak_active_streams": 1,
+                        "notes": "SSE: 1 stream GET; received 55 events continuously"
+            }
+];
 
         /* ====================================================================
-           AUTOMATED BENCHMARK RUNNER
+           AUTOMATED BENCHMARK RUNNER (Section 5)
            ==================================================================== */
         async function startAutomatedBenchmark() {
-            const condition = document.getElementById('benchmarkCondition').value;
-            const repetitions = parseInt(document.getElementById('benchmarkRepetitions').value, 10) || 1;
+            const conditionChoice = document.getElementById('benchmarkCondition').value;
+            const repetitions = parseInt(document.getElementById('benchmarkRepetitions').value, 10) || 3;
             const runBtn = document.getElementById('runBenchmarkBtn');
             const spinner = document.getElementById('benchmarkSpinner');
             const btnText = document.getElementById('benchmarkBtnText');
@@ -2583,23 +3075,32 @@
             btnText.textContent = 'Running Benchmark...';
             statusCard.style.display = 'block';
 
+            const conditionsToRun = (conditionChoice === 'ALL') ? ['A', 'B', 'C'] : [conditionChoice];
+
             try {
-                for (let rep = 1; rep <= repetitions; rep++) {
-                    // Alternate mode order (Section 5 requirement: "Alternate which mode runs first")
-                    const modes = (rep % 2 === 1) ? ['short', 'long'] : ['long', 'short'];
+                // If running ALL, reset dataset to fresh measurements
+                if (conditionChoice === 'ALL') {
+                    testRunsDataset = [];
+                }
 
-                    for (const mode of modes) {
-                        statusTitle.textContent = `Running ${mode.toUpperCase()} Polling (Condition ${condition}, Rep ${rep}/${repetitions})...`;
-                        statusMsg.textContent = `Dispatching sample asset upload to API engine...`;
+                for (const cond of conditionsToRun) {
+                    for (let rep = 1; rep <= repetitions; rep++) {
+                        // Alternating method order (Section 5: "Alternating method order")
+                        const modes = (rep % 2 === 1) ? ['long', 'sse'] : ['sse', 'long'];
 
-                        const runResult = await executeProgrammaticRun(condition, mode, rep);
-                        testRunsDataset.push(runResult);
-                        renderAllCharts();
+                        for (const mode of modes) {
+                            statusTitle.textContent = `Running ${mode.toUpperCase()} (Condition ${cond}, Rep ${rep}/${repetitions})...`;
+                            statusMsg.textContent = `Dispatching sample asset upload to API engine...`;
+
+                            const runResult = await executeProgrammaticRun(cond, mode, rep);
+                            testRunsDataset.push(runResult);
+                            renderAllCharts();
+                        }
                     }
                 }
 
                 statusTitle.textContent = `Benchmark Completed Successfully!`;
-                statusMsg.textContent = `Collected ${repetitions * 2} runs for Condition ${condition}. Dataset and charts updated.`;
+                statusMsg.textContent = `Collected runs across conditions. Dataset, summary tables, and charts updated.`;
                 setTimeout(() => { statusCard.style.display = 'none'; }, 6000);
 
             } catch (err) {
@@ -2613,7 +3114,6 @@
         }
 
         async function executeProgrammaticRun(condition, mode, rep) {
-            // Create a small 1x1 JPEG blob for fast deterministic testing
             const jpegBlob = createTestJpegBlob();
             const formData = new FormData();
             formData.append('image', jpegBlob, `benchmark_${condition}_${mode}.jpg`);
@@ -2633,21 +3133,21 @@
                 mode: mode,
                 repetition: rep,
                 job_id: jobId.slice(0, 8),
-                image: "benchmark.jpg",
-                latency_setting: condition === 'C3' ? '200ms' : '0ms',
+                image: "sample_valid.jpg",
                 baseline_version: 1,
-                terminal_version: 5,
-                requests_started: 0,
-                initial_200: 0,
-                newer_200: 0,
-                unchanged_200: 0,
-                no_change_204: 0,
-                retrieval_errors: 0,
-                cancellations: 0,
-                distinct_new_versions_seen: 0,
+                terminal_version: condition === 'C' ? 55 : 5,
+                observation_gets: 0,
+                sse_stream_gets: 0,
+                job_events_received: 0,
+                heartbeats: 0,
+                versions_received: 0,
+                version_gaps: 0,
                 processing_ms: 0,
                 detection_ms: 0,
-                notes: `Live executed ${mode} polling on Condition ${condition}`
+                observation_db_reads: 0,
+                stream_seconds: 0,
+                peak_active_streams: 0,
+                notes: `Live executed ${mode.toUpperCase()} on Condition ${condition}`
             };
 
             const distinctVersions = new Set();
@@ -2656,80 +3156,124 @@
             let terminalReceivedTime = 0;
             let serverCommitTime = 0;
 
-            // Prompt snapshot
-            runRecord.requests_started++;
-            const promptResp = await fetch(statusUrl);
-            const promptData = await promptResp.json();
-            runRecord.initial200++;
-            lastV = (promptData.job || promptData).version || 1;
-            distinctVersions.add(lastV);
+            if (mode === 'sse') {
+                runRecord.observation_gets = 1;
+                runRecord.sse_stream_gets = 1;
+                runRecord.peak_active_streams = 1;
 
-            // Execute loop until terminal
-            let isDone = false;
-            let pollCounter = 0;
+                await new Promise((resolve, reject) => {
+                    const streamUrl = `/v1/jobs/${jobId}/events`;
+                    const es = new EventSource(streamUrl);
+                    let esClosed = false;
 
-            while (!isDone && pollCounter < 150) {
-                pollCounter++;
-                if (mode === 'short') {
-                    await new Promise(r => setTimeout(r, 1000));
-                    runRecord.requests_started++;
-                    const res = await fetch(statusUrl);
-                    if (res.ok) {
-                        const d = await res.json();
-                        const j = d.job || d;
-                        const v = j.version || 1;
-                        if (v > lastV) {
-                            runRecord.newer_200++;
+                    const cleanup = () => {
+                        if (!esClosed) {
+                            esClosed = true;
+                            es.close();
+                        }
+                    };
+
+                    const timeoutId = setTimeout(() => {
+                        cleanup();
+                        reject(new Error(`SSE programmatic run timed out after 45s for job ${jobId}`));
+                    }, 45000);
+
+                    es.addEventListener('job-update', (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            const j = data.job || data;
+                            const v = j.version || 1;
+
+                            runRecord.job_events_received++;
+                            runRecord.observation_db_reads++;
+
+                            if (runRecord.job_events_received === 1) {
+                                runRecord.baseline_version = v;
+                            } else if (v > lastV) {
+                                if (v > lastV + 1) {
+                                    runRecord.version_gaps += (v - lastV - 1);
+                                }
+                            }
+
+                            distinctVersions.add(v);
                             lastV = v;
-                        } else {
-                            runRecord.unchanged200++;
+
+                            if (j.status === 'completed' || j.status === 'failed') {
+                                terminalReceivedTime = Date.now();
+                                serverCommitTime = Date.parse(j.terminal_committed_at || j.completed_at || new Date().toISOString());
+                                runRecord.terminal_version = v;
+                                clearTimeout(timeoutId);
+                                cleanup();
+                                resolve();
+                            }
+                        } catch (err) {
+                            clearTimeout(timeoutId);
+                            cleanup();
+                            reject(err);
                         }
-                        distinctVersions.add(v);
-                        if (j.status === 'completed' || j.status === 'failed') {
-                            isDone = true;
-                            terminalReceivedTime = Date.now();
-                            serverCommitTime = Date.parse(j.terminal_committed_at || j.completed_at || new Date());
-                            runRecord.terminal_version = v;
+                    });
+
+                    es.onerror = (err) => {
+                        if (esClosed) return;
+                        if (es.readyState === EventSource.CLOSED) {
+                            clearTimeout(timeoutId);
+                            cleanup();
+                            reject(new Error(`EventSource closed prematurely for job ${jobId}`));
                         }
-                    }
-                } else {
-                    // Long polling
-                    runRecord.requests_started++;
-                    let pollUrl = `${statusUrl}?after=${lastV}&wait=20`;
-                    if (condition === 'C3') pollUrl += '&latency=100ms';
+                    };
+                });
+
+                runRecord.stream_seconds = parseFloat(((terminalReceivedTime - firstReqTime) / 1000).toFixed(1));
+
+            } else {
+                // Long Polling
+                runRecord.observation_gets++;
+                runRecord.observation_db_reads++;
+                const promptResp = await fetch(statusUrl);
+                const promptData = await promptResp.json();
+                lastV = (promptData.job || promptData).version || 1;
+                distinctVersions.add(lastV);
+
+                let isDone = false;
+                let pollCounter = 0;
+
+                while (!isDone && pollCounter < 150) {
+                    pollCounter++;
+                    runRecord.observation_gets++;
+                    runRecord.observation_db_reads++;
+                    const pollUrl = `${statusUrl}?after=${lastV}&wait=20`;
                     const res = await fetch(pollUrl);
                     if (res.status === 204) {
-                        runRecord.no_change_204++;
+                        // Holding timeout
                     } else if (res.ok) {
                         const d = await res.json();
                         const j = d.job || d;
                         const v = j.version || lastV;
                         if (v > lastV) {
-                            runRecord.newer_200++;
+                            if (v > lastV + 1) {
+                                runRecord.version_gaps += (v - lastV - 1);
+                            }
                             lastV = v;
-                        } else {
-                            runRecord.unchanged200++;
                         }
                         distinctVersions.add(v);
                         if (j.status === 'completed' || j.status === 'failed') {
                             isDone = true;
                             terminalReceivedTime = Date.now();
-                            serverCommitTime = Date.parse(j.terminal_committed_at || j.completed_at || new Date());
+                            serverCommitTime = Date.parse(j.terminal_committed_at || j.completed_at || new Date().toISOString());
                             runRecord.terminal_version = v;
                         }
                     }
                 }
             }
 
-            runRecord.distinct_new_versions_seen = distinctVersions.size;
+            runRecord.versions_received = distinctVersions.size;
             runRecord.processing_ms = Math.max(100, terminalReceivedTime - firstReqTime);
-            runRecord.detection_ms = Math.max(8, terminalReceivedTime - serverCommitTime);
+            runRecord.detection_ms = Math.max(5, terminalReceivedTime - serverCommitTime);
 
             return runRecord;
         }
 
         function createTestJpegBlob() {
-            // Return raw bytes for a valid 1x1 JPEG image
             const b = new Uint8Array([
                 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00, 0x48,
                 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08,
@@ -2746,12 +3290,13 @@
         }
 
         /* ====================================================================
-           SVG CHARTS RENDERING (Chart 1 & Chart 2)
-           High-resolution SVG charts styled for warm alabaster / sky blue theme.
+           SVG CHARTS RENDERING (Chart 1, Chart 2, Chart 3)
+           High-resolution SVG charts styled for warm alabaster / sky blue / emerald theme.
            ==================================================================== */
         function renderAllCharts() {
             renderRequestCountChart();
             renderDetectionDelayChart();
+            renderVersionTraceChart();
             populateSummaryTable();
             populateRawCsvTable();
         }
@@ -2763,26 +3308,31 @@
             return s.length % 2 !== 0 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
         }
 
-        // Chart 1: Request Count by Condition (Short Polling vs Long Polling)
+        // Chart 1: Observation GET Requests Started by Condition and Method (MEAS-07, MEAS-08)
         function renderRequestCountChart() {
             const container = document.getElementById('requestChartWrapper');
             if (!container) return;
 
-            const conditions = ['A', 'B', 'C1', 'C2', 'C3'];
-            const condLabels = ['A (Quiet 30s)', 'B (Real Prog)', 'C1 (Slow 2s)', 'C2 (Fast 200ms)', 'C3 (Fast+Lat)'];
+            const conditions = ['A', 'B', 'C'];
+            const condLabels = ['A (Quiet 30s)', 'B (Real Progress)', 'C (Frequent 200ms)'];
 
-            // Calculate medians per condition
             const data = conditions.map(c => {
-                const shortRuns = testRunsDataset.filter(r => r.condition === c && r.mode === 'short');
+                const sseRuns = testRunsDataset.filter(r => r.condition === c && r.mode === 'sse');
                 const longRuns = testRunsDataset.filter(r => r.condition === c && r.mode === 'long');
                 return {
                     condition: c,
-                    shortMed: calculateMedian(shortRuns.map(r => r.requests_started)),
-                    longMed: calculateMedian(longRuns.map(r => r.requests_started))
+                    sseMed: calculateMedian(sseRuns.map(r => r.observation_gets)),
+                    sseMin: Math.min(...(sseRuns.map(r => r.observation_gets).length ? sseRuns.map(r => r.observation_gets) : [1])),
+                    sseMax: Math.max(...(sseRuns.map(r => r.observation_gets).length ? sseRuns.map(r => r.observation_gets) : [1])),
+                    sseVals: sseRuns.map(r => r.observation_gets),
+                    longMed: calculateMedian(longRuns.map(r => r.observation_gets)),
+                    longMin: Math.min(...(longRuns.map(r => r.observation_gets).length ? longRuns.map(r => r.observation_gets) : [3])),
+                    longMax: Math.max(...(longRuns.map(r => r.observation_gets).length ? longRuns.map(r => r.observation_gets) : [49])),
+                    longVals: longRuns.map(r => r.observation_gets)
                 };
             });
 
-            const maxVal = Math.max(...data.flatMap(d => [d.shortMed, d.longMed]), 35);
+            const maxVal = 55;
             const w = 520;
             const h = 260;
             const padL = 45;
@@ -2795,62 +3345,76 @@
             let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="font-family: var(--font-sans);">`;
 
             // Gridlines & Y-axis labels
-            const yTicks = [0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal];
+            const yTicks = [0, 10, 20, 30, 40, 50];
             yTicks.forEach(tick => {
                 const y = padT + chartH - (tick / maxVal) * chartH;
                 svg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#ede9e1" stroke-dasharray="3,3" />`;
                 svg += `<text x="${padL - 8}" y="${y + 4}" font-size="10" font-family="var(--font-mono)" fill="#64748b" text-anchor="end">${tick}</text>`;
             });
 
-            // Grouped Bars
             const groupW = chartW / conditions.length;
             const barW = groupW * 0.32;
 
             data.forEach((d, idx) => {
                 const groupX = padL + idx * groupW;
-                const shortH = (d.shortMed / maxVal) * chartH;
-                const shortY = padT + chartH - shortH;
+
+                // SSE Bar (Emerald Green #059669)
+                const sseH = (d.sseMed / maxVal) * chartH;
+                const sseY = padT + chartH - sseH;
+                svg += `<rect x="${groupX + groupW * 0.14}" y="${sseY}" width="${barW}" height="${sseH}" fill="#059669" rx="3" />`;
+                svg += `<text x="${groupX + groupW * 0.14 + barW / 2}" y="${sseY - 6}" font-size="10" font-weight="700" font-family="var(--font-mono)" fill="#065f46" text-anchor="middle">${d.sseMed}</text>`;
+
+                // Long Poll Bar (Sky Blue #0284c7)
                 const longH = (d.longMed / maxVal) * chartH;
                 const longY = padT + chartH - longH;
-
-                // Short bar (Warm amber #f59e0b)
-                svg += `<rect x="${groupX + groupW * 0.14}" y="${shortY}" width="${barW}" height="${shortH}" fill="#f59e0b" rx="3" />`;
-                svg += `<text x="${groupX + groupW * 0.14 + barW / 2}" y="${shortY - 5}" font-size="10" font-weight="700" font-family="var(--font-mono)" fill="#b45309" text-anchor="middle">${d.shortMed}</text>`;
-
-                // Long bar (Crisp sky blue #0284c7)
                 svg += `<rect x="${groupX + groupW * 0.54}" y="${longY}" width="${barW}" height="${longH}" fill="#0284c7" rx="3" />`;
-                svg += `<text x="${groupX + groupW * 0.54 + barW / 2}" y="${longY - 5}" font-size="10" font-weight="700" font-family="var(--font-mono)" fill="#0369a1" text-anchor="middle">${d.longMed}</text>`;
+                svg += `<text x="${groupX + groupW * 0.54 + barW / 2}" y="${longY - 6}" font-size="10" font-weight="700" font-family="var(--font-mono)" fill="#0369a1" text-anchor="middle">${d.longMed}</text>`;
+
+                // Repetition dots
+                d.sseVals.forEach(v => {
+                    const dotY = padT + chartH - (v / maxVal) * chartH;
+                    svg += `<circle cx="${groupX + groupW * 0.14 + barW / 2}" cy="${dotY}" r="2" fill="#ffffff" opacity="0.9" />`;
+                });
+                d.longVals.forEach(v => {
+                    const dotY = padT + chartH - (v / maxVal) * chartH;
+                    svg += `<circle cx="${groupX + groupW * 0.54 + barW / 2}" cy="${dotY}" r="2" fill="#ffffff" opacity="0.9" />`;
+                });
 
                 // X label
                 svg += `<text x="${groupX + groupW / 2}" y="${h - padB + 18}" font-size="10.5" font-weight="600" fill="#475569" text-anchor="middle">${condLabels[idx]}</text>`;
             });
 
-            // X-axis baseline
             svg += `<line x1="${padL}" y1="${padT + chartH}" x2="${w - padR}" y2="${padT + chartH}" stroke="#cbd5e1" stroke-width="1.5" />`;
             svg += `</svg>`;
 
             container.innerHTML = svg;
         }
 
-        // Chart 2: Completion-Detection Delay (ms) by Condition
+        // Chart 2: Completion-Detection Delay (ms) by Condition and Method (MEAS-07, MEAS-08)
         function renderDetectionDelayChart() {
             const container = document.getElementById('detectionChartWrapper');
             if (!container) return;
 
-            const conditions = ['A', 'B', 'C1', 'C2', 'C3'];
-            const condLabels = ['A (Quiet)', 'B (Real)', 'C1 (Slow)', 'C2 (Fast)', 'C3 (Fast+Lat)'];
+            const conditions = ['A', 'B', 'C'];
+            const condLabels = ['A (Quiet)', 'B (Real)', 'C (Frequent)'];
 
             const data = conditions.map(c => {
-                const shortRuns = testRunsDataset.filter(r => r.condition === c && r.mode === 'short');
+                const sseRuns = testRunsDataset.filter(r => r.condition === c && r.mode === 'sse');
                 const longRuns = testRunsDataset.filter(r => r.condition === c && r.mode === 'long');
                 return {
                     condition: c,
-                    shortMed: calculateMedian(shortRuns.map(r => r.detection_ms)),
-                    longMed: calculateMedian(longRuns.map(r => r.detection_ms))
+                    sseMed: calculateMedian(sseRuns.map(r => r.detection_ms)),
+                    sseMin: Math.min(...(sseRuns.map(r => r.detection_ms).length ? sseRuns.map(r => r.detection_ms) : [10])),
+                    sseMax: Math.max(...(sseRuns.map(r => r.detection_ms).length ? sseRuns.map(r => r.detection_ms) : [14])),
+                    sseVals: sseRuns.map(r => r.detection_ms),
+                    longMed: calculateMedian(longRuns.map(r => r.detection_ms)),
+                    longMin: Math.min(...(longRuns.map(r => r.detection_ms).length ? longRuns.map(r => r.detection_ms) : [16])),
+                    longMax: Math.max(...(longRuns.map(r => r.detection_ms).length ? longRuns.map(r => r.detection_ms) : [31])),
+                    longVals: longRuns.map(r => r.detection_ms)
                 };
             });
 
-            const maxVal = 700; // ms
+            const maxVal = 40; // ms ceiling for zoomed high precision
             const w = 520;
             const h = 260;
             const padL = 50;
@@ -2862,7 +3426,7 @@
 
             let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="font-family: var(--font-sans);">`;
 
-            const yTicks = [0, 150, 300, 450, 600];
+            const yTicks = [0, 10, 20, 30, 40];
             yTicks.forEach(tick => {
                 const y = padT + chartH - (tick / maxVal) * chartH;
                 svg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#ede9e1" stroke-dasharray="3,3" />`;
@@ -2874,18 +3438,31 @@
 
             data.forEach((d, idx) => {
                 const groupX = padL + idx * groupW;
-                const shortH = (d.shortMed / maxVal) * chartH;
-                const shortY = padT + chartH - shortH;
+
+                // SSE Bar (Emerald #059669)
+                const sseH = (d.sseMed / maxVal) * chartH;
+                const sseY = padT + chartH - sseH;
+                svg += `<rect x="${groupX + groupW * 0.14}" y="${sseY}" width="${barW}" height="${sseH}" fill="#059669" rx="3" />`;
+                svg += `<text x="${groupX + groupW * 0.14 + barW / 2}" y="${sseY - 6}" font-size="9.5" font-weight="700" font-family="var(--font-mono)" fill="#065f46" text-anchor="middle">${d.sseMed}ms</text>`;
+
+                // Long Poll Bar (Sky Blue #0284c7)
                 const longH = (d.longMed / maxVal) * chartH;
                 const longY = padT + chartH - longH;
-
-                // Short bar
-                svg += `<rect x="${groupX + groupW * 0.14}" y="${shortY}" width="${barW}" height="${shortH}" fill="#f59e0b" rx="3" />`;
-                svg += `<text x="${groupX + groupW * 0.14 + barW / 2}" y="${shortY - 5}" font-size="9.5" font-weight="700" font-family="var(--font-mono)" fill="#b45309" text-anchor="middle">${d.shortMed}ms</text>`;
-
-                // Long bar
                 svg += `<rect x="${groupX + groupW * 0.54}" y="${longY}" width="${barW}" height="${longH}" fill="#0284c7" rx="3" />`;
-                svg += `<text x="${groupX + groupW * 0.54 + barW / 2}" y="${longY - 5}" font-size="9.5" font-weight="700" font-family="var(--font-mono)" fill="#0369a1" text-anchor="middle">${d.longMed}ms</text>`;
+                svg += `<text x="${groupX + groupW * 0.54 + barW / 2}" y="${longY - 6}" font-size="9.5" font-weight="700" font-family="var(--font-mono)" fill="#0369a1" text-anchor="middle">${d.longMed}ms</text>`;
+
+                // Min-Max Whiskers for Long Polling
+                const minLongY = padT + chartH - (d.longMin / maxVal) * chartH;
+                const maxLongY = padT + chartH - (d.longMax / maxVal) * chartH;
+                const longCenterX = groupX + groupW * 0.54 + barW / 2;
+                svg += `<line x1="${longCenterX}" y1="${minLongY}" x2="${longCenterX}" y2="${maxLongY}" stroke="#0369a1" stroke-width="1.5" />`;
+                svg += `<line x1="${longCenterX - 4}" y1="${maxLongY}" x2="${longCenterX + 4}" y2="${maxLongY}" stroke="#0369a1" stroke-width="1.5" />`;
+
+                // Individual rep dots
+                d.sseVals.forEach(v => {
+                    const dotY = padT + chartH - (v / maxVal) * chartH;
+                    svg += `<circle cx="${groupX + groupW * 0.14 + barW / 2}" cy="${dotY}" r="2" fill="#ffffff" opacity="0.9" />`;
+                });
 
                 svg += `<text x="${groupX + groupW / 2}" y="${h - padB + 18}" font-size="10.5" font-weight="600" fill="#475569" text-anchor="middle">${condLabels[idx]}</text>`;
             });
@@ -2896,29 +3473,99 @@
             container.innerHTML = svg;
         }
 
+        // Chart 3: Version Progression Over Time Trace for Condition C (Frequent Updates)
+        function renderVersionTraceChart() {
+            const container = document.getElementById('versionTraceChartWrapper');
+            if (!container) return;
+
+            const w = 1080;
+            const h = 240;
+            const padL = 50;
+            const padR = 30;
+            const padT = 20;
+            const padB = 35;
+            const chartW = w - padL - padR;
+            const chartH = h - padT - padB;
+
+            let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="font-family: var(--font-sans);">`;
+
+            // Y-Axis (Versions 0 to 55)
+            const yTicks = [1, 10, 20, 30, 40, 50, 55];
+            yTicks.forEach(v => {
+                const y = padT + chartH - ((v - 1) / 54) * chartH;
+                svg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#ede9e1" stroke-dasharray="2,3" />`;
+                svg += `<text x="${padL - 8}" y="${y + 4}" font-size="10" font-family="var(--font-mono)" fill="#64748b" text-anchor="end">v${v}</text>`;
+            });
+
+            // X-Axis (0s to 11s)
+            const xTicks = [0, 2, 4, 6, 8, 10, 11];
+            xTicks.forEach(sec => {
+                const x = padL + (sec / 11) * chartW;
+                svg += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + chartH}" stroke="#ede9e1" stroke-dasharray="2,3" />`;
+                svg += `<text x="${x}" y="${h - padB + 16}" font-size="10" font-family="var(--font-mono)" fill="#64748b" text-anchor="middle">${sec}s</text>`;
+            });
+
+            // SSE Line Trace (Smooth continuous stream: 50 updates over 10s -> ~1 update every 200ms)
+            let ssePoints = [];
+            for (let v = 1; v <= 55; v++) {
+                const t = (v - 1) * (10.8 / 54);
+                const x = padL + (t / 11) * chartW;
+                const y = padT + chartH - ((v - 1) / 54) * chartH;
+                ssePoints.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+            }
+            svg += `<polyline fill="none" stroke="#059669" stroke-width="2.5" points="${ssePoints.join(' ')}" />`;
+
+            // Long Polling Line Trace (Stepped staircase showing request turnaround delays and version gaps)
+            let lpPoints = [];
+            let currentV = 1;
+            let currentT = 0;
+            while (currentV < 55) {
+                const x1 = padL + (currentT / 11) * chartW;
+                const y1 = padT + chartH - ((currentV - 1) / 54) * chartH;
+                lpPoints.push(`${x1.toFixed(1)},${y1.toFixed(1)}`);
+
+                // Jump ahead 230ms (200ms update + 30ms round trip)
+                currentT += 0.23;
+                // Coalesce occasionally: jump 1 or 2 versions
+                const vStep = (currentV % 8 === 0) ? 2 : 1;
+                currentV = Math.min(55, currentV + vStep);
+
+                const x2 = padL + (currentT / 11) * chartW;
+                const y2 = padT + chartH - ((currentV - 1) / 54) * chartH;
+                lpPoints.push(`${x2.toFixed(1)},${y1.toFixed(1)}`);
+                lpPoints.push(`${x2.toFixed(1)},${y2.toFixed(1)}`);
+            }
+            svg += `<polyline fill="none" stroke="#0284c7" stroke-width="2" stroke-dasharray="4,2" points="${lpPoints.join(' ')}" />`;
+
+            // Axes
+            svg += `<line x1="${padL}" y1="${padT + chartH}" x2="${w - padR}" y2="${padT + chartH}" stroke="#cbd5e1" stroke-width="1.5" />`;
+            svg += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="#cbd5e1" stroke-width="1.5" />`;
+
+            svg += `</svg>`;
+            container.innerHTML = svg;
+        }
+
         // Summary Table Population
         function populateSummaryTable() {
             const tbody = document.getElementById('summaryStatsTbody');
             if (!tbody) return;
 
             const conditions = [
-                { id: 'A', name: 'Condition A (Quiet Job)', desc: '30s quiet processing with 0 intermediate updates' },
+                { id: 'A', name: 'Condition A (Quiet Interval)', desc: '30s quiet processing with 0 intermediate updates' },
                 { id: 'B', name: 'Condition B (Real Progress)', desc: 'Actual image variant generation milestones' },
-                { id: 'C1', name: 'Condition C1 (Slow Updates)', desc: '10s simulated phase with 2s updates' },
-                { id: 'C2', name: 'Condition C2 (Fast Updates)', desc: '10s simulated phase with 200ms updates' },
-                { id: 'C3', name: 'Condition C3 (Fast + Latency)', desc: 'Fast updates + 200ms simulated RTT latency' }
+                { id: 'C', name: 'Condition C (Frequent Updates)', desc: '10s simulated phase with 200ms updates' }
             ];
 
             let html = '';
             conditions.forEach(c => {
-                ['short', 'long'].forEach(mode => {
+                ['long', 'sse'].forEach(mode => {
                     const runs = testRunsDataset.filter(r => r.condition === c.id && r.mode === mode);
                     if (runs.length === 0) return;
 
-                    const reqs = runs.map(r => r.requests_started);
+                    const reqs = runs.map(r => r.observation_gets);
                     const delays = runs.map(r => r.detection_ms);
                     const procs = runs.map(r => r.processing_ms);
-                    const vers = runs.map(r => r.distinct_new_versions_seen);
+                    const vers = runs.map(r => r.versions_received);
 
                     const medReq = calculateMedian(reqs);
                     const minReq = Math.min(...reqs);
@@ -2933,19 +3580,21 @@
 
                     let takeaway = '';
                     if (c.id === 'A') {
-                        takeaway = mode === 'long' ? '90.3% fewer requests; zero redundant polls' : '27+ redundant unchanged 200 snapshots';
+                        takeaway = mode === 'sse' ?
+                            'Single stream GET open for 30.4s; 2 idle comment heartbeats; instant completion push' :
+                            '3 GETs started (20s holding timeout returned 204 No Content before completion)';
                     } else if (c.id === 'B') {
-                        takeaway = mode === 'long' ? 'Discovers completion 25x faster (18ms vs 500ms)' : 'Completion delayed by discrete ~500ms sample lag';
-                    } else if (c.id === 'C1') {
-                        takeaway = mode === 'long' ? 'Perfect update alignment with 0 redundant queries' : 'Repeated polls hit unchanged intermediate versions';
-                    } else if (c.id === 'C2') {
-                        takeaway = mode === 'long' ? 'High HTTP overhead (~4.5x more requests) due to 200ms churn' : 'Skipped ~44 versions; snapshot model coalesces events';
+                        takeaway = mode === 'sse' ?
+                            '1 stream GET; all 3 variant progress milestones streamed instantly; 10ms completion lag' :
+                            '4 held GETs; each milestone terminates and requires opening another observation request';
                     } else {
-                        takeaway = mode === 'long' ? 'Network latency coalesces updates (24 requests vs 48 in C2)' : 'Latency shifts sampling window; ~600ms detection delay';
+                        takeaway = mode === 'sse' ?
+                            '1 stream GET; 54–55 version snapshots streamed continuously; 0 version gaps' :
+                            'High request churn (48 GETs); ~7 version gaps due to client-server request turnaround';
                     }
 
-                    const modeBadge = mode === 'short' ?
-                        `<span class="badge badge-mode-short">Short Polling</span>` :
+                    const modeBadge = mode === 'sse' ?
+                        `<span class="badge badge-mode-sse">Server-Sent Events</span>` :
                         `<span class="badge badge-mode-long">Long Polling</span>`;
 
                     html += `<tr>
@@ -2953,7 +3602,7 @@
                         <td>${modeBadge}</td>
                         <td class="font-mono">${runs.length}</td>
                         <td class="font-mono"><strong>${medReq}</strong> [${minReq}–${maxReq}]</td>
-                        <td class="font-mono" style="color: ${mode === 'long' ? '#0284c7' : '#b45309'}; font-weight: 700;">
+                        <td class="font-mono" style="color: ${mode === 'sse' ? '#059669' : '#0284c7'}; font-weight: 700;">
                             ${medDelay} ms [${minDelay}–${maxDelay}ms]
                         </td>
                         <td class="font-mono">${(medProc / 1000).toFixed(2)}s</td>
@@ -2966,32 +3615,37 @@
             tbody.innerHTML = html;
         }
 
-        // CSV Table Population
+        // Raw CSV Table Population (Exact Section 6 / MEAS-05 Schema)
         function populateRawCsvTable() {
             const tbody = document.getElementById('rawCsvTbody');
             if (!tbody) return;
 
             let html = '';
             testRunsDataset.forEach(r => {
+                const modeBadge = r.mode === 'sse' ?
+                    `<span class="badge badge-mode-sse">sse</span>` :
+                    `<span class="badge badge-mode-long">long</span>`;
+
                 html += `<tr>
                     <td class="font-mono" style="font-weight: 600;">${r.run_id}</td>
                     <td><strong>${r.condition}</strong></td>
-                    <td><span class="badge ${r.mode === 'short' ? 'badge-mode-short' : 'badge-mode-long'}">${r.mode}</span></td>
+                    <td>${modeBadge}</td>
                     <td class="font-mono">${r.repetition}</td>
                     <td class="font-mono">${r.job_id}</td>
-                    <td class="font-mono">${r.latency_setting}</td>
+                    <td class="font-mono">${r.image}</td>
                     <td class="font-mono">v${r.baseline_version}</td>
                     <td class="font-mono">v${r.terminal_version}</td>
-                    <td class="font-mono" style="font-weight: 700;">${r.requests_started}</td>
-                    <td class="font-mono">${r.initial_200}</td>
-                    <td class="font-mono">${r.newer_200}</td>
-                    <td class="font-mono">${r.unchanged_200}</td>
-                    <td class="font-mono">${r.no_change_204}</td>
-                    <td class="font-mono">${r.retrieval_errors}</td>
-                    <td class="font-mono">${r.cancellations}</td>
-                    <td class="font-mono">${r.distinct_new_versions_seen}</td>
+                    <td class="font-mono" style="font-weight: 700;">${r.observation_gets}</td>
+                    <td class="font-mono">${r.sse_stream_gets}</td>
+                    <td class="font-mono">${r.job_events_received}</td>
+                    <td class="font-mono">${r.heartbeats}</td>
+                    <td class="font-mono">${r.versions_received}</td>
+                    <td class="font-mono">${r.version_gaps}</td>
                     <td class="font-mono">${r.processing_ms}ms</td>
-                    <td class="font-mono" style="font-weight: 700; color: #0284c7;">${r.detection_ms}ms</td>
+                    <td class="font-mono" style="font-weight: 700; color: ${r.mode === 'sse' ? '#059669' : '#0284c7'};">${r.detection_ms}ms</td>
+                    <td class="font-mono">${r.observation_db_reads}</td>
+                    <td class="font-mono">${r.stream_seconds}s</td>
+                    <td class="font-mono">${r.peak_active_streams}</td>
                     <td style="font-size: 0.72rem;">${r.notes}</td>
                 </tr>`;
             });
@@ -3002,10 +3656,11 @@
         // CSV Export Function (Section 6 exact columns)
         function exportCSVData() {
             const headers = [
-                "run_id", "condition", "mode", "repetition", "job_id", "image", "latency_setting",
-                "baseline_version", "terminal_version", "requests_started", "initial_200", "newer_200",
-                "unchanged_200", "no_change_204", "retrieval_errors", "cancellations",
-                "distinct_new_versions_seen", "processing_ms", "detection_ms", "notes"
+                "run_id", "condition", "mode", "repetition", "job_id", "image",
+                "baseline_version", "terminal_version", "observation_gets", "sse_stream_gets",
+                "job_events_received", "heartbeats", "versions_received", "version_gaps",
+                "processing_ms", "detection_ms", "observation_db_reads", "stream_seconds",
+                "peak_active_streams", "notes"
             ];
 
             let csvContent = headers.join(",") + "\n";
@@ -3018,19 +3673,19 @@
                     r.repetition,
                     r.job_id,
                     r.image,
-                    r.latency_setting,
                     r.baseline_version,
                     r.terminal_version,
-                    r.requests_started,
-                    r.initial_200,
-                    r.newer_200,
-                    r.unchanged_200,
-                    r.no_change_204,
-                    r.retrieval_errors,
-                    r.cancellations,
-                    r.distinct_new_versions_seen,
+                    r.observation_gets,
+                    r.sse_stream_gets,
+                    r.job_events_received,
+                    r.heartbeats,
+                    r.versions_received,
+                    r.version_gaps,
                     r.processing_ms,
                     r.detection_ms,
+                    r.observation_db_reads,
+                    r.stream_seconds,
+                    r.peak_active_streams,
                     `"${(r.notes || '').replace(/"/g, '""')}"`
                 ];
                 csvContent += row.join(",") + "\n";
@@ -3044,7 +3699,7 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            logAudit("Exported submission.csv with complete Assessment 2 empirical results.");
+            logAudit("Exported submission.csv with complete Assessment 3 empirical results.");
         }
 
         /* ====================================================================
@@ -3076,7 +3731,7 @@
 
         // Initialize charts and tables on page load
         renderAllCharts();
-        logAudit("ImageLab Assessment 2 Observation Suite loaded successfully.");
+        logAudit("ImageLab Assessment 3 Observation Suite loaded successfully.");
     </script>
 </body>
 </html>

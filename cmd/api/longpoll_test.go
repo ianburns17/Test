@@ -1,9 +1,6 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -30,19 +27,31 @@ func setupTestServer(t *testing.T) (*applicationDependencies, func()) {
 		storageDir:  tempDir,
 		variantsDir: filepath.Join(tempDir, "variants"),
 	}
+	cfg.db.dsn = "postgres://postgres:postgres@localhost:5432/image_db?sslmode=disable"
 	cfg.limiter.enabled = false
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	notifier := NewJobNotifier()
 
+	db, err := openDB(cfg)
+	var models data.Models
+	if err == nil {
+		models = data.NewModels(db)
+	} else {
+		models = data.NewModels(nil)
+	}
+
 	app := &applicationDependencies{
 		config:   cfg,
 		logger:   logger,
-		models:   data.NewModels(nil),
+		models:   models,
 		notifier: notifier,
 	}
 
 	cleanup := func() {
+		if db != nil {
+			_ = db.Close()
+		}
 		_ = os.RemoveAll(tempDir)
 	}
 

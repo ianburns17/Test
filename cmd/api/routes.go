@@ -24,7 +24,10 @@ func (a *applicationDependencies) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/images/:id", a.getImageHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/images/:id/variants/:name", a.getVariantHandler)
 
-	// Job Observation Endpoints (Week 2 Durable Job & Short Polling)
+	// Job Observation Endpoints
+	// SSE Route (Assessment 3 / SSE-01)
+	router.HandlerFunc(http.MethodGet, "/v1/jobs/:id/events", a.getJobEventsHandler)
+	// Prompt snapshot & Versioned Long Polling (Assessment 2 / API-01, API-02)
 	router.HandlerFunc(http.MethodGet, "/v1/jobs/:id", a.getJobHandler)
 
 	// Middleware chain: recoverPanic -> rateLimit -> corsMiddleware

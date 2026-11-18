@@ -1,0 +1,19 @@
+run_id,condition,mode,repetition,job_id,image,baseline_version,terminal_version,observation_gets,sse_stream_gets,job_events_received,heartbeats,versions_received,version_gaps,processing_ms,detection_ms,observation_db_reads,stream_seconds,peak_active_streams,notes
+RUN-01,A,long,1,e4180dda,sample_valid.jpg,1,5,6,0,0,0,5,0,30495,11,6,0.0,0,Long polling: 1 held 204 expiry at 20s + completed 200
+RUN-02,A,sse,1,a170a32a,sample_valid.jpg,1,5,1,1,5,2,5,0,30497,12,5,30.66,1,SSE: 1 stream GET; 2 heartbeat comments; instant terminal push
+RUN-03,A,sse,2,fa5769d4,sample_valid.jpg,1,5,1,1,5,2,5,0,30498,9,5,30.68,1,SSE: 1 stream GET; 2 heartbeat comments; instant terminal push
+RUN-04,A,long,2,e6141b99,sample_valid.jpg,1,5,6,0,0,0,5,0,30494,11,6,0.0,0,Long polling: 1 held 204 expiry at 20s + completed 200
+RUN-05,A,long,3,98ccabca,sample_valid.jpg,1,5,6,0,0,0,5,0,30488,8,6,0.0,0,Long polling: 1 held 204 expiry at 20s + completed 200
+RUN-06,A,sse,3,289966e3,sample_valid.jpg,1,5,1,1,5,2,5,0,30489,10,5,30.68,1,SSE: 1 stream GET; 2 heartbeat comments; instant terminal push
+RUN-07,B,long,1,e614e7c3,sample_valid.jpg,1,5,5,0,0,0,5,0,500,11,5,0.0,0,Long polling: 4 consecutive held requests
+RUN-08,B,sse,1,b233941e,sample_valid.jpg,1,5,1,1,5,0,5,0,490,7,5,0.66,1,SSE: 1 stream GET; all 3 variant updates streamed with 0 gaps
+RUN-09,B,sse,2,1101ede0,sample_valid.jpg,1,5,1,1,5,0,5,0,491,11,5,0.69,1,SSE: 1 stream GET; all 3 variant updates streamed with 0 gaps
+RUN-10,B,long,2,9ba8cef1,sample_valid.jpg,1,5,5,0,0,0,5,0,493,10,5,0.0,0,Long polling: 4 consecutive held requests
+RUN-11,B,long,3,eef74e76,sample_valid.jpg,1,5,5,0,0,0,5,0,490,17,5,0.0,0,Long polling: 4 consecutive held requests
+RUN-12,B,sse,3,abc17995,sample_valid.jpg,1,5,1,1,5,0,5,0,490,10,5,0.67,1,SSE: 1 stream GET; all 3 variant updates streamed with 0 gaps
+RUN-13,C,long,1,42e31ced,sample_valid.jpg,1,55,55,0,0,0,55,0,10743,9,55,0.0,0,Long polling: 55 GETs; turnaround version gaps
+RUN-14,C,sse,1,0d9bc2b3,sample_valid.jpg,1,55,1,1,55,0,55,0,10745,9,55,10.89,1,SSE: 1 stream GET; received 55 events continuously
+RUN-15,C,sse,2,de204ab7,sample_valid.jpg,1,55,1,1,55,0,55,0,10741,8,55,10.86,1,SSE: 1 stream GET; received 55 events continuously
+RUN-16,C,long,2,0dc533fa,sample_valid.jpg,1,55,55,0,0,0,55,0,10830,9,55,0.0,0,Long polling: 55 GETs; turnaround version gaps
+RUN-17,C,long,3,b1281736,sample_valid.jpg,1,55,55,0,0,0,55,0,10774,12,55,0.0,0,Long polling: 55 GETs; turnaround version gaps
+RUN-18,C,sse,3,a89b61e2,sample_valid.jpg,1,55,1,1,55,0,55,0,10789,7,55,10.9,1,SSE: 1 stream GET; received 55 events continuously
